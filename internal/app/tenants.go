@@ -137,7 +137,7 @@ func (a *App) SetPassword(ctx context.Context, email, password string) error {
 		if err := st.UpdateUser(ctx, u); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = $1`, u.ID); err != nil {
+		if err := auth.NewSessions(tx).DeleteForUser(ctx, u.ID); err != nil {
 			return err
 		}
 		return audit.Record(ctx, tx, audit.Event{ActorUserID: uuid.NullUUID{}, Action: "user.password_set",
