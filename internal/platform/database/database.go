@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver
 	"github.com/pressly/goose/v3"
@@ -78,6 +79,13 @@ func open(ctx context.Context, dialect Dialect, driver, dsn string, log *slog.Lo
 		// One writer at a time is a property of SQLite; a small pool keeps
 		// WAL readers concurrent without piling up blocked writers.
 		sqlDB.SetMaxOpenConns(4)
+	} else {
+		// A new PostgreSQL connection costs several round trips (TCP, TLS,
+		// SCRAM); keep the ones a page's parallel requests need, instead of
+		// database/sql's default of 2 idle. Bounded, as hosted plans cap connections.
+		sqlDB.SetMaxOpenConns(10)
+		sqlDB.SetMaxIdleConns(10)
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 	}
 	if err := sqlDB.PingContext(ctx); err != nil {
 		_ = sqlDB.Close()
