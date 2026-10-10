@@ -102,6 +102,7 @@ func NewHandler(d Deps) http.Handler {
 
 // adminRoutes registers the staff API; each feature adds its routes here.
 func (s *server) adminRoutes(r chi.Router) {
+	s.settingsRoutes(r)
 	s.menuRoutes(r)
 }
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -135,4 +136,20 @@ func (e *env) owner() *client {
 		e.t.Fatalf("owner login: %d %s", r.Code, r.Body.String())
 	}
 	return c
+}
+
+// doRaw sends a raw JSON body.
+func (c *client) doRaw(method, path, body string) resp {
+	c.e.t.Helper()
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if c.cookie != nil {
+		req.AddCookie(c.cookie)
+	}
+	if c.csrf != "" {
+		req.Header.Set("X-CSRF-Token", c.csrf)
+	}
+	rec := httptest.NewRecorder()
+	c.e.h.ServeHTTP(rec, req)
+	return resp{rec}
 }
