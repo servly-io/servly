@@ -411,6 +411,19 @@ dialog { color: var(--fg); }
 .qr-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 12px; }
 .add-bar { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
 
+/* payments */
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.pick { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: var(--r); cursor: pointer; transition: border-color 0.15s; }
+.pick:hover { border-color: var(--border-strong); }
+.pick.picked { border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
+.pick:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.pick-row { flex-direction: row; align-items: flex-start; gap: 12px; }
+.pick-row input { margin-top: 2px; }
+.provider { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r); }
+.provider.unavailable { opacity: 0.6; }
+.steps-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.copy-box { display: block; padding: 10px 12px; border-radius: var(--r-sm); user-select: all; }
+
 /* staff */
 .people { list-style: none; margin: 0; padding: 0; }
 .person { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
@@ -614,7 +627,7 @@ dialog { color: var(--fg); }
 /* checkout */
 .topnav-guest { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
 .topnav-guest h1 { font-size: 1.1rem; font-weight: 700; }
-.checkout { max-width: 560px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+.checkout { max-width: 560px; margin: 0 auto; padding: 20px 16px 72px; display: flex; flex-direction: column; gap: 16px; }
 .cart-lines { list-style: none; margin: 0; padding: 0; }
 .cart-line { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0; border-top: 1px solid var(--border); }
 .cart-line:first-child { border-top: none; padding-top: 0; }

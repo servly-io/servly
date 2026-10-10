@@ -136,7 +136,7 @@ export function OrderDrawer({ id, handover, onClose, onChanged }: { id: string; 
                     <li key={p.id} className="stack-tight" style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                       <div className="row">
                         <strong className="num">{formatMoney(p.amount_minor, p.currency)}</strong>
-                        <span className="muted small row-grow">{p.method === 'external_terminal' ? 'Card terminal' : p.method === 'cash' ? 'Cash' : 'Other'}{p.recorded_by && ` · ${p.recorded_by.name}`}</span>
+                        <span className="muted small row-grow">{p.method === 'online' ? `Online · ${p.detail || p.provider}` : p.method === 'external_terminal' ? 'Card terminal' : p.method === 'cash' ? 'Cash' : 'Other'}{p.recorded_by && ` · ${p.recorded_by.name}`}</span>
                         <span className={`badge ${p.status === 'paid' ? 'badge-ok' : p.status === 'pending' ? 'badge-warn' : p.status === 'failed' ? 'badge-danger' : 'badge-info'}`}>{p.status.replace('_', ' ')}</span>
                       </div>
                       {p.refunded_minor > 0 && <span className="muted small">Refunded {formatMoney(p.refunded_minor, p.currency)}</span>}

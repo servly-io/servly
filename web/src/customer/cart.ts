@@ -98,3 +98,42 @@ export function recallMenuToken(orderToken: string): string | null {
     return null;
   }
 }
+
+/**
+ * Before sending a guest to a provider's checkout, remember which menu (and
+ * order) it belongs to, so the return page knows where "back" is.
+ */
+export function rememberCheckout(checkoutToken: string, place: { menu?: string; order?: string }) {
+  try {
+    sessionStorage.setItem(`servly.checkout.${checkoutToken}`, JSON.stringify(place));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function recallCheckout(checkoutToken: string): { menu?: string; order?: string } {
+  try {
+    return JSON.parse(sessionStorage.getItem(`servly.checkout.${checkoutToken}`) ?? '{}') as { menu?: string; order?: string };
+  } catch {
+    return {};
+  }
+}
+
+/** A paid prepay checkout became an order: the cart is done. */
+export function clearCart(menuToken: string) {
+  try {
+    sessionStorage.removeItem(storageKey(menuToken));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** A failed checkout used the cart's key; a new attempt needs a new one. */
+export function renewCheckoutKey(menuToken: string) {
+  const c = read(menuToken);
+  try {
+    sessionStorage.setItem(storageKey(menuToken), JSON.stringify({ ...c, checkoutKey: newIdempotencyKey() }));
+  } catch {
+    /* ignore */
+  }
+}

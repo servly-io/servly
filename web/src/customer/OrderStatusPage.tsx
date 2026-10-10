@@ -5,8 +5,8 @@ import { publicApi } from '../api/public';
 import type { OrderStatus, PublicOrder } from '../api/types';
 import { formatMoney } from '../shared/money';
 import { Icon, type IconName } from '../shared/icons';
-import { EmptyState, ErrorBanner, Spinner } from '../shared/ui';
-import { recallMenuToken, recallOrder } from './cart';
+import { EmptyState, ErrorBanner, Spinner, useAction } from '../shared/ui';
+import { recallMenuToken, recallOrder, rememberCheckout } from './cart';
 
 const statusView: Record<OrderStatus, { title: string; text: string; icon: IconName }> = {
   new: { title: 'Order sent', text: 'Waiting for the restaurant to accept it.', icon: 'clock' },
@@ -30,6 +30,7 @@ export function OrderStatusPage() {
   const [statusHidden, setStatusHidden] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [menuToken] = useState(() => recallMenuToken(token));
+  const pay = useAction();
   const modeRef = useRef<'dine_in' | 'pickup'>(order?.mode ?? 'dine_in');
   if (order) modeRef.current = order.mode;
 
@@ -125,9 +126,24 @@ export function OrderStatusPage() {
           <div className="totals"><span>Total</span><span className="num">{formatMoney(order.total_minor, order.currency)}</span></div>
           <div className="info-row muted small" style={{ gap: 10 }}>
             <Icon name="wallet" size={18} />
-            <span>{order.payment_status === 'paid' ? 'Paid. Thank you!' : `Pay ${pickup ? 'when you collect' : 'at the table'}.`}</span>
+            <span>{order.payment_status === 'paid' ? 'Paid. Thank you!' : order.pay_online ? `Pay now on your phone, or ${pickup ? 'when you collect' : 'at the table'}.` : `Pay ${pickup ? 'when you collect' : 'at the table'}.`}</span>
           </div>
         </section>
+
+        {order.pay_online && (
+          <div className="stack-tight">
+            <ErrorBanner error={pay.error} />
+            <button type="button" className="btn btn-primary btn-large btn-block btn-round" style={{ justifyContent: 'space-between' }} disabled={pay.busy}
+              onClick={() => void pay.run(async () => {
+                const start = await publicApi.payOrder(token);
+                rememberCheckout(start.checkout_token, { order: token, menu: menuToken ?? undefined });
+                window.location.assign(start.redirect_url);
+              })}>
+              <span className="row" style={{ gap: 8 }}><Icon name="wallet" size={18} />{pay.busy ? 'Opening payment…' : 'Pay now'}</span>
+              <span className="num">{formatMoney(order.total_minor, order.currency)}</span>
+            </button>
+          </div>
+        )}
 
         {menuToken && (
           <Link className="btn btn-large btn-block btn-round" to={`/m/${menuToken}`}>

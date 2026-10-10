@@ -6,7 +6,7 @@ import type { Quote } from '../api/types';
 import { Icon } from '../shared/icons';
 import { formatMoney } from '../shared/money';
 import { EmptyState, ErrorBanner, Spinner, useAction, useLoad } from '../shared/ui';
-import { rememberOrder, useCart } from './cart';
+import { rememberCheckout, rememberOrder, useCart } from './cart';
 
 /** Review the cart with server-confirmed prices, then submit: /m/:token/cart. */
 export function CartPage() {
@@ -48,8 +48,27 @@ export function CartPage() {
     }
   };
 
+  // Pay first: the provider's page takes the money, and the order is created
+  // once servly confirms the payment.
+  const payNow = async () => {
+    const start = await submit.run(() => publicApi.prepay(request, cart.checkoutKey));
+    if (start) {
+      rememberCheckout(start.checkout_token, { menu: token });
+      window.location.assign(start.redirect_url);
+    }
+  };
+
   const offline = submit.error instanceof ApiError && submit.error.isNetwork;
   const total = quote ? formatMoney(quote.total_minor, cur) : '';
+  const online = menu.data.payment;
+  const payText =
+    online === 'before'
+      ? 'You pay online now: card, Apple Pay, Google Pay or your local method. The order goes to the kitchen once it is paid.'
+      : online === 'either'
+        ? 'Pay online now, or at the counter when you collect.'
+        : online === 'after'
+          ? `You can pay on your phone after ordering, or ${pickup ? 'when you collect' : 'at the table'}.`
+          : `You pay ${pickup ? 'when you collect' : 'at the table'}: cash or card. Nothing is charged now.`;
 
   return (
     <div className="guest">
@@ -119,7 +138,7 @@ export function CartPage() {
             </div>
             <div className="info-row muted small" style={{ gap: 10 }}>
               <Icon name="wallet" size={18} />
-              <span>You pay {pickup ? 'when you collect' : 'at the table'}: cash or card. Nothing is charged now.</span>
+              <span>{payText}</span>
             </div>
           </section>
 
@@ -131,11 +150,19 @@ export function CartPage() {
           ) : (
             <ErrorBanner error={submit.error} />
           )}
-          <div className="checkout-cta">
-            <button type="button" className="btn btn-primary btn-large btn-block" disabled={!quote || submit.busy} onClick={() => void place()}>
-              <span>{submit.busy ? 'Sending…' : offline ? 'Try again' : 'Place order'}</span>
-              <span className="num">{total}</span>
-            </button>
+          <div className="checkout-cta stack-tight">
+            {online === 'before' || online === 'either' ? (
+              <button type="button" className="btn btn-primary btn-large btn-block" disabled={!quote || submit.busy} onClick={() => void payNow()}>
+                <span>{submit.busy ? 'Opening payment…' : online === 'before' ? 'Pay and order' : 'Pay now'}</span>
+                <span className="num">{total}</span>
+              </button>
+            ) : null}
+            {online !== 'before' && (
+              <button type="button" className={`btn btn-large btn-block ${online === 'either' ? '' : 'btn-primary'}`} disabled={!quote || submit.busy} onClick={() => void place()}>
+                <span>{submit.busy ? 'Sending…' : offline ? 'Try again' : online === 'either' ? 'Order, pay at the counter' : 'Place order'}</span>
+                <span className="num">{online === 'either' ? '' : total}</span>
+              </button>
+            )}
           </div>
         </main>
       )}

@@ -11,7 +11,10 @@ export type OrderStatus = 'new' | 'accepted' | 'preparing' | 'ready' | 'complete
 
 export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'partially_refunded' | 'refunded';
 
-export type PaymentMethod = 'cash' | 'external_terminal' | 'other';
+export type PaymentMethod = 'cash' | 'external_terminal' | 'other' | 'online';
+
+/** How guests at one table or pickup point can pay online (docs/docs/payments.md). */
+export type GuestPayment = 'none' | 'before' | 'after' | 'either';
 
 export type OrderMode = 'dine_in' | 'pickup';
 
@@ -161,6 +164,7 @@ export interface StaffMember {
 export interface PublicMenu {
   restaurant: { name: string; currency: Currency; order_notes_enabled: boolean };
   dining_location: { name: string; kind: DiningKind };
+  payment: GuestPayment;
   categories: {
     id: string;
     name: string;
@@ -211,6 +215,52 @@ export interface PublicOrder extends Quote {
   payment_status: PaymentStatus;
   notes: string;
   created_at: string;
+  /** The guest may pay this order online now. */
+  pay_online: boolean;
+}
+
+export interface CheckoutStart {
+  checkout_token: string;
+  redirect_url: string;
+}
+
+export interface CheckoutState {
+  status: 'open' | 'paid' | 'failed' | 'expired';
+  kind: 'bill' | 'prepay';
+  order_token: string | null;
+  redirect_url: string;
+}
+
+export type TableFlow = 'after' | 'before' | 'staff';
+export type PickupFlow = 'before' | 'either' | 'counter';
+
+export interface PaymentAccount {
+  provider: string;
+  mode: 'test' | 'live';
+  account_name: string;
+  account_ref: string;
+  country: string;
+  table_flow: TableFlow;
+  pickup_flow: PickupFlow;
+  webhook_url: string;
+  webhooks: boolean;
+  updated_at: string;
+}
+
+export interface PaymentMarket {
+  code: string;
+  name: string;
+  currencies: string[] | null;
+  methods: string[];
+  providers: { id: string; name: string; recommended: boolean; methods: string[]; note?: string; available: boolean }[];
+}
+
+export interface PaymentsOverview {
+  /** The server has a secret key to seal credentials with. */
+  available: boolean;
+  sandbox: boolean;
+  markets: PaymentMarket[];
+  account: PaymentAccount | null;
 }
 
 export interface OrderRequest {
@@ -245,6 +295,9 @@ export interface Payment {
   refunded_minor: MinorUnits;
   currency: Currency;
   reference: string;
+  /** Online payments: the provider, and how the guest paid ("Visa •••• 4242"). */
+  provider: string;
+  detail: string;
   recorded_by: { id: string; name: string } | null;
   created_at: string;
 }

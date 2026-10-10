@@ -2,12 +2,14 @@ import { createBrowserRouter, Outlet, RouterProvider } from 'react-router';
 import { AdminLayout } from './admin/AdminLayout';
 import { ItemEditor } from './admin/ItemEditor';
 import { MenuPage as AdminMenuPage } from './admin/MenuPage';
+import { PaymentsPage } from './admin/PaymentsPage';
 import { SettingsPage } from './admin/SettingsPage';
 import { SetupWizard } from './admin/SetupWizard';
 import { SetupPage } from './admin/SetupPage';
 import { StaffPage } from './admin/StaffPage';
 import { TablesPage, TablesPrintPage } from './admin/TablesPage';
 import { CartPage } from './customer/CartPage';
+import { CheckoutReturnPage } from './customer/CheckoutReturnPage';
 import { MenuPage } from './customer/MenuPage';
 import { OrderStatusPage } from './customer/OrderStatusPage';
 import { Home } from './shared/Home';
@@ -21,6 +23,7 @@ import { PickupDisplay } from './staff/PickupDisplay';
 // Route map (docs/docs/architecture.md#frontend):
 //   /m/:token  customer menu, public, from a QR code
 //   /o/:token  customer order status, public
+//   /pay/:token  where a payment provider sends the guest back, public
 //   /staff     order board, staff session
 //   /staff/display  pickup screen for guests (order numbers), staff session
 //   /admin/*   administration
@@ -38,6 +41,7 @@ const router = createBrowserRouter([
       { path: '/m/:token', element: <MenuPage /> },
       { path: '/m/:token/cart', element: <CartPage /> },
       { path: '/o/:token', element: <OrderStatusPage /> },
+      { path: '/pay/:token', element: <CheckoutReturnPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/setup', element: <SetupWizard /> },
       { path: '/staff', element: <RequireSession><OrderBoard /></RequireSession> },
@@ -54,6 +58,7 @@ const router = createBrowserRouter([
           { path: 'tables/print', element: <TablesPrintPage /> },
           { path: 'staff', element: <StaffPage /> },
           { path: 'settings', element: <SettingsPage /> },
+          { path: 'payments', element: <PaymentsPage /> },
         ],
       },
       { path: '*', element: <Placeholder title="Not found" phase="this page does not exist" /> },

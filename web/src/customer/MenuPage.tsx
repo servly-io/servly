@@ -56,7 +56,7 @@ export function MenuPage() {
         <h1>{m.restaurant.name}</h1>
         <div className="store-meta">
           <span><Icon name={pickup ? 'bag' : 'pin'} size={16} /><strong>{m.dining_location.name}</strong>{pickup ? ' · Pickup' : ' · Dine-in'}</span>
-          <span><Icon name="wallet" size={16} />{pickup ? 'Pay when you collect' : 'Pay at the table'}</span>
+          <span><Icon name="wallet" size={16} />{payLine(m.payment, pickup)}</span>
           <span><Icon name="user" size={16} />No account needed</span>
         </div>
       </header>
@@ -256,4 +256,17 @@ function ItemSheet({ item, menu, onClose, onAdd }: {
       </form>
     </dialog>
   );
+}
+
+function payLine(p: PublicMenu['payment'], pickup: boolean): string {
+  switch (p) {
+    case 'before':
+      return 'Pay online when ordering';
+    case 'either':
+      return 'Pay online or at the counter';
+    case 'after':
+      return pickup ? 'Pay online or when you collect' : 'Pay on your phone or at the table';
+    default:
+      return pickup ? 'Pay when you collect' : 'Pay at the table';
+  }
 }

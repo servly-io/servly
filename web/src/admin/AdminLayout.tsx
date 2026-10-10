@@ -33,6 +33,7 @@ export function AdminLayout() {
     { to: '/admin/menu', label: 'Menu', icon: 'utensils' },
     { to: '/admin/tables', label: 'Tables & QR codes', icon: 'qr' },
     { to: '/admin/staff', label: 'Staff', icon: 'users', show: can('staff.manage') },
+    { to: '/admin/payments', label: 'Payments', icon: 'wallet', show: can('settings.manage') },
     { to: '/admin/settings', label: 'Settings', icon: 'sliders' },
   ];
   const name = session?.active_tenant?.name ?? '';

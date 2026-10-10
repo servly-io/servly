@@ -11,7 +11,11 @@ import type {
   Role,
   Session,
   Settings,
+  PaymentAccount,
+  PaymentsOverview,
+  PickupFlow,
   SetupInput,
+  TableFlow,
   StaffMember,
 } from './types';
 
@@ -61,6 +65,15 @@ export const diningApi = {
 export const settingsApi = {
   get: () => api<Settings>('GET', '/api/admin/settings'),
   update: (body: Partial<Settings>) => api<Settings>('PATCH', '/api/admin/settings', { body }),
+};
+
+export const paymentsApi = {
+  overview: () => api<PaymentsOverview>('GET', '/api/admin/payments'),
+  connect: (body: { provider: string; secret_key: string; webhook_secret?: string; table_flow: TableFlow; pickup_flow: PickupFlow }) =>
+    api<PaymentAccount>('PUT', '/api/admin/payments/account', { body }),
+  update: (body: { table_flow?: TableFlow; pickup_flow?: PickupFlow; webhook_secret?: string }) =>
+    api<PaymentAccount>('PATCH', '/api/admin/payments/account', { body }),
+  disconnect: () => api<void>('DELETE', '/api/admin/payments/account'),
 };
 
 export const staffApi = {
