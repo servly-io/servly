@@ -7,14 +7,18 @@ Guests scan a QR code at the table and order from their phone. Staff see the ord
 
 servly runs **locally** on one small machine with SQLite, with no cloud account and no internet needed for ordering. It also runs **managed** for many restaurants on PostgreSQL. Both use the same single binary, which serves the API and the web app.
 
-> **Status:** early development. The foundation is in place: server, configuration, both databases, migrations, health endpoints, web app shell, container image. Menu administration, ordering and the staff board arrive in the next phases of [MASTER_PLAN.md](MASTER_PLAN.md).
+> **Status:** MVP feature-complete for a single restaurant: menu administration, QR table ordering, staff order board with live updates and manual payments, on SQLite or PostgreSQL. Deployment hardening (built-in backups, browser validation) is next; see [MASTER_PLAN.md](MASTER_PLAN.md) Phase 5.
 
 ## Quick start
 
 ```bash
-make run                      # builds the web app and the server, serves on :8080 with SQLite in ./data
-curl localhost:8080/readyz    # {"status":"ok"}
+make build
+echo "a long password" | dist/servly tenant create --name "Trattoria Roma" --timezone Europe/Berlin \
+  --owner-email anna@example.com --password-stdin --data-dir ./data
+SERVLY_LOG_FORMAT=text dist/servly serve      # http://localhost:8080/login
 ```
+
+Then, in the browser: build the menu under **Menu**, add tables under **Tables**, print the QR codes, and watch orders arrive under **Orders**.
 
 In a container:
 

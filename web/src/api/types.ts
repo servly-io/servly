@@ -207,3 +207,39 @@ export interface OrderRequest {
   notes: string;
   items: { menu_item_id: string; quantity: number; option_ids: string[]; notes: string }[];
 }
+
+export interface StaffOrder {
+  id: string;
+  number: number;
+  business_date: string;
+  mode: OrderMode;
+  dining_location: { id: string; name: string } | null;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  version: number;
+  currency: Currency;
+  subtotal_minor: MinorUnits;
+  total_minor: MinorUnits;
+  notes: string;
+  items: OrderLine[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Payment {
+  id: string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amount_minor: MinorUnits;
+  refunded_minor: MinorUnits;
+  currency: Currency;
+  reference: string;
+  recorded_by: { id: string; name: string } | null;
+  created_at: string;
+}
+
+export interface OrderDetail extends StaffOrder {
+  outstanding_minor: MinorUnits;
+  events: { from: OrderStatus | null; to: OrderStatus; actor: { id: string; name: string } | null; reason: string; created_at: string }[];
+  payments: Payment[];
+}

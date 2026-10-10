@@ -207,3 +207,28 @@ legend { font-weight: 600; padding: 0 4px; }
 .progress { display: flex; gap: 4px; list-style: none; padding: 0; }
 .progress li { flex: 1; text-align: center; padding: 8px 4px; border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 0.85rem; text-transform: capitalize; }
 .progress li.reached { background: var(--accent); color: var(--accent-fg); }
+
+/* ---- staff board ---- */
+.board { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 12px; padding: 12px; overflow-x: auto; align-items: start; }
+@media (max-width: 900px) { .board { grid-template-columns: repeat(4, 85vw); scroll-snap-type: x mandatory; } .board-col { scroll-snap-align: start; } }
+.board-col h2 { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; }
+.count { background: var(--surface); border-radius: 999px; padding: 0 10px; font-size: 0.95rem; }
+.order-card { display: flex; flex-direction: column; gap: 8px; border-left-width: 6px; }
+.order-card.status-new { border-left-color: #d97706; box-shadow: 0 0 0 2px rgb(217 119 6 / 0.25); animation: arrive 1.2s ease-out 2; }
+@keyframes arrive { from { box-shadow: 0 0 0 6px rgb(217 119 6 / 0.5); } }
+@media (prefers-reduced-motion: reduce) { .order-card.status-new { animation: none; } }
+.order-card.status-ready { border-left-color: var(--accent); }
+.order-card-head { display: flex; gap: 8px; align-items: baseline; background: none; border: none; padding: 0; text-align: left; cursor: pointer; color: inherit; min-height: 44px; }
+.order-no { font-size: 1.5rem; font-weight: 700; }
+.age { color: var(--muted); }
+.age-late { color: var(--danger); font-weight: 600; }
+.order-lines li { padding: 2px 0; font-size: 1.05rem; }
+.note { color: #b45309; font-style: italic; }
+.pay-paid { color: var(--ok); border-color: var(--ok); }
+.pay-unpaid { color: var(--muted); }
+.pay-pending { color: #b45309; border-color: #b45309; }
+.conn { padding: 4px 10px; border-radius: 999px; font-size: 0.9rem; }
+.conn-live { background: rgb(31 111 92 / 0.12); color: var(--ok); }
+.conn-connecting, .conn-reconnecting { background: rgb(179 38 30 / 0.12); color: var(--danger); font-weight: 600; }
+.drawer { max-height: 92vh; overflow-y: auto; }
+.history { padding-left: 20px; color: var(--muted); }
