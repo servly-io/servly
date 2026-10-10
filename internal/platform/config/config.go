@@ -191,8 +191,18 @@ func resolve(v *viper.Viper) (Config, error) {
 	}
 	var errs []error
 
+	// A PostgreSQL URL is never a SQLite file path: it selects PostgreSQL on its
+	// own, so a hosted database (Neon, RDS) needs only database.url.
+	if u := strings.ToLower(c.DatabaseURL); strings.HasPrefix(u, "postgres://") || strings.HasPrefix(u, "postgresql://") {
+		c.DatabaseDriver = DriverPostgres
+	}
+
 	switch c.DatabaseDriver {
 	case DriverSQLite:
+		// The value is not echoed: a URL may carry a password.
+		if strings.Contains(c.DatabaseURL, "://") {
+			errs = append(errs, fmt.Errorf("%s is a URL, not a SQLite file path; PostgreSQL URLs start with postgres:// or postgresql://", KeyDatabaseURL))
+		}
 	case DriverPostgres:
 		if c.DatabaseURL == "" {
 			errs = append(errs, fmt.Errorf("%s is required when %s is postgres", KeyDatabaseURL, KeyDatabaseDriver))

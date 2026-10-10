@@ -65,7 +65,7 @@ Settings resolve in this order (highest wins): command-line flag, environment va
 |---|---|---|---|
 | `listen_addr` | `SERVLY_LISTEN_ADDR` | `--listen-addr` | `:8080` |
 | `data_dir` | `SERVLY_DATA_DIR` | `--data-dir` | `./data` |
-| `database.driver` | `SERVLY_DATABASE_DRIVER` | `--database-driver` | `sqlite` |
+| `database.driver` | `SERVLY_DATABASE_DRIVER` | `--database-driver` | `sqlite`; a `postgres://` or `postgresql://` `database.url` selects `postgres` by itself |
 | `database.url` | `SERVLY_DATABASE_URL` | `--database-url` | `<data_dir>/servly.db` for SQLite; required for PostgreSQL |
 | `migrate_on_start` | `SERVLY_MIGRATE_ON_START` | `--migrate-on-start` | `true` |
 | `log.level` | `SERVLY_LOG_LEVEL` | `--log-level` | `info` |

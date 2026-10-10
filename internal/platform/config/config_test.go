@@ -152,3 +152,18 @@ func TestHTTPSettingsFromFile(t *testing.T) {
 		t.Fatalf("%+v", c)
 	}
 }
+
+// A PostgreSQL URL alone selects PostgreSQL; another URL is no SQLite path.
+func TestDatabaseURLSelectsDriver(t *testing.T) {
+	isolate(t)
+	t.Setenv("SERVLY_DATABASE_URL", "postgresql://neondb_owner:pw@ep-x.neon.tech/neondb?sslmode=require&channel_binding=require")
+	c, err := Load(New(), "")
+	if err != nil || c.DatabaseDriver != DriverPostgres {
+		t.Fatalf("driver %q, err %v", c.DatabaseDriver, err)
+	}
+	t.Setenv("SERVLY_DATABASE_URL", "mysql://root:secret@db/servly")
+	_, err = Load(New(), "")
+	if err == nil || !strings.Contains(err.Error(), "not a SQLite file path") || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("mysql URL: %v", err)
+	}
+}
