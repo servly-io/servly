@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/servly-io/servly/internal/auth"
+	"github.com/servly-io/servly/internal/orders/ordersql"
+	"github.com/servly-io/servly/internal/platform/database"
 )
 
 // RunMaintenance purges expired records every interval until ctx ends.
@@ -28,5 +30,8 @@ func (a *App) maintain(ctx context.Context, now time.Time) {
 		}
 	} else if n > 0 {
 		a.Log.InfoContext(ctx, "purged expired sessions", "count", n)
+	}
+	if _, err := ordersql.New(a.DB).DeleteExpiredIdempotency(ctx, database.Timestamp{Time: now}); err != nil && ctx.Err() == nil {
+		a.Log.WarnContext(ctx, "purge expired idempotency records", "error", err)
 	}
 }

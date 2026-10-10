@@ -59,6 +59,7 @@ type client struct {
 	e      *env
 	cookie *http.Cookie
 	csrf   string
+	ip     string // RemoteAddr host; empty keeps httptest's default
 }
 
 func (e *env) client() *client { return &client{e: e} }
@@ -103,6 +104,9 @@ func (c *client) do(method, path string, body any, hdr ...string) resp {
 	}
 	if c.csrf != "" {
 		req.Header.Set("X-CSRF-Token", c.csrf)
+	}
+	if c.ip != "" {
+		req.RemoteAddr = c.ip + ":40000"
 	}
 	for i := 0; i+1 < len(hdr); i += 2 {
 		req.Header.Set(hdr[i], hdr[i+1])

@@ -49,6 +49,7 @@ type server struct {
 	Deps
 	loginPerIP    *limiter
 	loginPerEmail *limiter
+	public        publicLimits
 }
 
 // NewHandler returns the root handler of the server.
@@ -63,6 +64,7 @@ func NewHandler(d Deps) http.Handler {
 		Deps:          d,
 		loginPerIP:    newLimiter(3*time.Second, 20),
 		loginPerEmail: newLimiter(12*time.Second, 5),
+		public:        newPublicLimits(),
 	}
 
 	r := chi.NewRouter()
@@ -107,12 +109,6 @@ func (s *server) adminRoutes(r chi.Router) {
 	s.menuRoutes(r)
 	s.diningRoutes(r)
 	s.assetRoutes(r)
-}
-
-// publicRoutes registers the guest API: no session, the token in the path is
-// the access check.
-func (s *server) publicRoutes(r chi.Router) {
-	r.Get("/assets/{id}", s.publicAsset)
 }
 
 // NewServer wraps a handler in an http.Server with conservative timeouts.

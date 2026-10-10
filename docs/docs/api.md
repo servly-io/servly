@@ -5,7 +5,7 @@ title: API
 
 This page is the HTTP contract between the server, the web app and any other client. MASTER_PLAN.md §9 proposed the starting paths; this page is now authoritative, and [Changes from the plan](#changes-from-the-plan) lists where it departs from §9. Agents implement against this page. Change the page first, in the same change set as the code.
 
-Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) with image upload, [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points).
+Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) with image upload, [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points), and the [public API](#public-api): menu, idempotent order placement, order status.
 
 ## Conventions
 
@@ -48,7 +48,7 @@ Every error has one shape:
 | 429 | - | `rate_limited`, with `Retry-After` |
 | 500 | - | `internal_error`; details are logged, never returned |
 
-Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`, `file_required`, `unsupported_media_type`, `asset_too_large`. A new code goes into this list in the same change.
+Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`, `file_required`, `unsupported_media_type`, `asset_too_large`, `idempotency_key_required`, `empty_order`, `too_many_lines`, `invalid_quantity`, `item_unavailable`, `option_unavailable`, `invalid_option_selection`, `notes_too_long`, `notes_disabled`, `negative_line_price`, `invalid_cursor`. A new code goes into this list in the same change.
 
 ## Authentication and tenant context
 
@@ -138,13 +138,14 @@ Header `Idempotency-Key` is required. See [idempotent order creation](domain-mod
 ```json
 {
   "dining_location_token": "…",
-  "mode": "dine_in",
   "notes": "",
   "items": [
     { "menu_item_id": "…", "quantity": 2, "option_ids": ["…"], "notes": "no basil" }
   ]
 }
 ```
+
+The order's `mode` follows the dining location: a table gives `dine_in`, a pickup point gives `pickup`.
 
 `201` creates the order. A replay with the same key and body returns `200` with the same order. The body:
 
@@ -153,6 +154,9 @@ Header `Idempotency-Key` is required. See [idempotent order creation](domain-mod
   "order_token": "…",
   "number": 17,
   "status": "new",
+  "payment_status": "unpaid",
+  "mode": "dine_in",
+  "dining_location": "Table 4",
   "currency": "EUR",
   "subtotal_minor": 2500,
   "total_minor": 2500,
@@ -161,11 +165,12 @@ Header `Idempotency-Key` is required. See [idempotent order creation](domain-mod
       "line_total_minor": 2500, "notes": "no basil",
       "options": [ { "group_name": "Size", "option_name": "Large", "price_delta_minor": 300 } ] }
   ],
+  "notes": "",
   "created_at": "…"
 }
 ```
 
-`422` for any rule in [Pricing](domain-model.md#pricing). `details` names the offending line index and option. Client-sent prices are not accepted, because there is no field for them. Rate-limited per IP and per dining location.
+`422` for any rule in [Pricing](domain-model.md#pricing). `details` names the offending line index and option. Client-sent prices are not accepted, because there is no field for them. Rate-limited per IP (10 at once, then 1 per 6 s) and per dining location (30, then 1 per 2 s).
 
 ### `GET /api/public/orders/{orderToken}`
 

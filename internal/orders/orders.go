@@ -37,6 +37,7 @@ var (
 	// ErrIdempotencyMismatch is returned when an idempotency key is reused
 	// with a different request body.
 	ErrIdempotencyMismatch = apperr.Conflict("idempotency_key_reused", "idempotency key already used for a different order")
+	ErrBadCursor           = apperr.Invalid("invalid_cursor", "the cursor is not valid; start from the first page")
 )
 
 // Order is a submitted order. Lines and totals are snapshots taken at
@@ -161,8 +162,8 @@ type IdempotencyRecord struct {
 // IdempotencyStore persists IdempotencyRecords. Get and Put run in the same
 // transaction as the order creation.
 type IdempotencyStore interface {
-	// Get returns the record for key, or nil if there is none or it expired.
-	Get(ctx context.Context, tenantID uuid.UUID, scope, key string) (*IdempotencyRecord, error)
-	Put(ctx context.Context, r *IdempotencyRecord) error
-	DeleteExpired(ctx context.Context, before database.Timestamp) (int64, error)
+	// GetIdempotency returns the live record for key, or nil.
+	GetIdempotency(ctx context.Context, tenantID uuid.UUID, scope, key string, now database.Timestamp) (*IdempotencyRecord, error)
+	PutIdempotency(ctx context.Context, r *IdempotencyRecord) error
+	DeleteExpiredIdempotency(ctx context.Context, before database.Timestamp) (int64, error)
 }

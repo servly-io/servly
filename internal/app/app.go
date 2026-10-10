@@ -7,6 +7,7 @@ package app
 import (
 	"log/slog"
 
+	"github.com/servly-io/servly/internal/notifications"
 	"github.com/servly-io/servly/internal/platform/database"
 	"github.com/servly-io/servly/internal/storage"
 )
@@ -17,6 +18,10 @@ type App struct {
 	Log *slog.Logger
 	// Files stores uploaded assets; nil disables uploads.
 	Files *storage.Local
+	// Events receives order changes after commit, for the staff SSE stream.
+	Events *notifications.Broker
 }
 
-func New(db *database.DB, log *slog.Logger) *App { return &App{DB: db, Log: log} }
+func New(db *database.DB, log *slog.Logger) *App {
+	return &App{DB: db, Log: log, Events: notifications.NewBroker()}
+}
