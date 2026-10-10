@@ -93,9 +93,14 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 		if err != nil {
 			return err
 		}
-		if required {
-			// shortcut: the token lives in this process only, so a restart prints
-			// a new one; persist it if several replicas ever share a fresh database.
+		switch {
+		case required && cfg.SetupToken != "":
+			// Shared by every instance; the operator already knows it.
+			application.SetupToken = app.NormalizeSetupToken(cfg.SetupToken)
+			log.Warn("first-run setup: open servly in a browser and enter the setup_token from the configuration", "path", "/setup")
+		case required:
+			// A random token lives in this process only, so a restart prints a
+			// new one; platforms with several instances set setup_token instead.
 			application.SetupToken = app.NewSetupToken()
 			log.Warn("first-run setup: open servly in a browser and enter this setup token",
 				"setup_token", application.SetupToken, "path", "/setup")

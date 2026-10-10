@@ -68,6 +68,9 @@ func (a *App) CheckSetupToken(ctx context.Context, token string) error {
 	return nil
 }
 
+// NormalizeSetupToken is how tokens are compared: case and whitespace do not count.
+func NormalizeSetupToken(t string) string { return normalizeSetupToken(t) }
+
 func normalizeSetupToken(t string) string {
 	return strings.ToLower(strings.Join(strings.Fields(t), ""))
 }

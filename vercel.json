@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "app": {
+      "root": ".",
+      "runtime": "container",
+      "entrypoint": "Containerfile"
+    },
+    "docs": {
+      "root": "docs",
+      "framework": "docusaurus-2",
+      "buildCommand": "DOCS_BASE_URL=/docs/ npm run build && rm -rf vercel-out && mkdir vercel-out && mv build vercel-out/docs",
+      "outputDirectory": "vercel-out"
+    }
+  },
+  "rewrites": [
+    { "source": "/docs", "destination": { "service": "docs" } },
+    { "source": "/docs/(.*)", "destination": { "service": "docs" } },
+    { "source": "/(.*)", "destination": { "service": "app" } }
+  ]
+}

@@ -44,6 +44,7 @@ const (
 	KeyPublicBaseURL  = "http.public_base_url"
 	KeySecretKey      = "secret_key"
 	KeySandbox        = "payments.sandbox"
+	KeySetupToken     = "setup_token"
 )
 
 var defaults = map[string]any{
@@ -59,6 +60,7 @@ var defaults = map[string]any{
 	KeyPublicBaseURL:  "",
 	KeySecretKey:      "",
 	KeySandbox:        false,
+	KeySetupToken:     "",
 }
 
 // ConfigEnv names the variable that points at the config file.
@@ -90,6 +92,9 @@ type Config struct {
 	// PaymentsSandbox offers the built-in sandbox provider: a fake hosted
 	// checkout for demos and tests. Never for real guests.
 	PaymentsSandbox bool
+	// SetupToken fixes the first-run setup token instead of a random one per
+	// process: for platforms that run several instances or restart them.
+	SetupToken string
 	// File is the config file that was read, or empty.
 	File string
 }
@@ -182,6 +187,7 @@ func resolve(v *viper.Viper) (Config, error) {
 		CookieSecure:   v.GetString(KeyCookieSecure),
 		PublicBaseURL:  strings.TrimRight(v.GetString(KeyPublicBaseURL), "/"),
 		SecretKey:      v.GetString(KeySecretKey),
+		SetupToken:     strings.TrimSpace(v.GetString(KeySetupToken)),
 	}
 	var errs []error
 
@@ -215,6 +221,9 @@ func resolve(v *viper.Viper) (Config, error) {
 		errs = append(errs, fmt.Errorf("%s: %q is not a boolean", KeySandbox, v.GetString(KeySandbox)))
 	}
 	c.PaymentsSandbox = sandbox
+	if c.SetupToken != "" && len(c.SetupToken) < 16 {
+		errs = append(errs, fmt.Errorf("%s: at least 16 characters (openssl rand -hex 16)", KeySetupToken))
+	}
 	if c.SecretKey != "" {
 		if _, err := secretbox.Parse(c.SecretKey); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", KeySecretKey, err))

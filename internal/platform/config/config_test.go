@@ -127,11 +127,15 @@ func TestInvalidValuesAreAllReported(t *testing.T) {
 	t.Setenv("SERVLY_HTTP_COOKIE_SECURE", "sometimes")
 	t.Setenv("SERVLY_HTTP_TRUST_PROXY_HEADERS", "yes please")
 	t.Setenv("SERVLY_HTTP_PUBLIC_BASE_URL", "ftp://x")
+	t.Setenv("SERVLY_SECRET_KEY", "too-short")
+	t.Setenv("SERVLY_SETUP_TOKEN", "short")
+	t.Setenv("SERVLY_PAYMENTS_SANDBOX", "kind of")
 	_, err := Load(New(), "")
 	if err == nil {
 		t.Fatal("want error")
 	}
-	for _, key := range []string{KeyDatabaseDriver, KeyMigrateOnStart, KeyLogLevel, KeyLogFormat, KeyCookieSecure, KeyTrustProxy, KeyPublicBaseURL} {
+	for _, key := range []string{KeyDatabaseDriver, KeyMigrateOnStart, KeyLogLevel, KeyLogFormat, KeyCookieSecure, KeyTrustProxy, KeyPublicBaseURL,
+		KeySecretKey, KeySetupToken, KeySandbox} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("error does not mention %s: %v", key, err)
 		}

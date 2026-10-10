@@ -53,6 +53,7 @@ func newConfigCommand(f *rootFlags) *cobra.Command {
 				"database":         map[string]string{"driver": string(cfg.DatabaseDriver), "url": redactURL(cfg.DatabaseURL)},
 				"log":              map[string]string{"level": cfg.LogLevel.String(), "format": cfg.LogFormat},
 				"secret_key":       redactSecret(cfg.SecretKey),
+				"setup_token":      redactSecret(cfg.SetupToken),
 				"payments":         map[string]bool{"sandbox": cfg.PaymentsSandbox},
 			}
 			enc := yaml.NewEncoder(cmd.OutOrStdout())

@@ -106,3 +106,15 @@ func TestSetupClosedWithoutToken(t *testing.T) {
 		t.Fatalf("no token configured: %v", err)
 	}
 }
+
+// A configured token (SERVLY_SETUP_TOKEN) is compared like a generated one.
+func TestConfiguredSetupToken(t *testing.T) {
+	a := newApp(t, dbtest.Open(t, database.SQLite))
+	a.SetupToken = app.NormalizeSetupToken(" Demo-Setup-Token-0001 ")
+	if err := a.CheckSetupToken(context.Background(), "demo-setup-token-0001"); err != nil {
+		t.Fatalf("configured token: %v", err)
+	}
+	if err := a.CheckSetupToken(context.Background(), "demo-setup-token-0002"); !errors.Is(err, app.ErrSetupTokenInvalid) {
+		t.Fatalf("wrong token: %v", err)
+	}
+}

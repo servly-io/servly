@@ -75,6 +75,7 @@ Settings resolve in this order (highest wins): command-line flag, environment va
 | `http.public_base_url` | `SERVLY_HTTP_PUBLIC_BASE_URL` | - | empty: taken from the request; the address guests use, for QR codes, e.g. `http://192.168.1.20:8080` |
 | `secret_key` | `SERVLY_SECRET_KEY` | - | empty: online payments off. 32 random bytes, base64 (`openssl rand -base64 32`), that encrypt payment provider credentials. Keep it with your backups: without it, connected providers must be connected again |
 | `payments.sandbox` | `SERVLY_PAYMENTS_SANDBOX` | - | `false`; `true` offers a fake payment provider for demos and tests. Never for real guests |
+| `setup_token` | `SERVLY_SETUP_TOKEN` | - | empty: a random first-run setup token per start, printed in the log. Set one (at least 16 characters, `openssl rand -hex 16`) where several instances run or restart often, so they all accept the same token. Not logged |
 
 The config file is optional. servly reads the first file it finds among `--config`, `$SERVLY_CONFIG`, `~/.config/servly-io/servly.yaml` and `/etc/servly-io/servly.yaml`. An unknown key in the file is an error, so typos do not pass silently.
 
