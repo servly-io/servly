@@ -1,0 +1,26 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "VERSION=${nextRelease.version} scripts/build-release.sh",
+        "publishCmd": "VERSION=${nextRelease.version} scripts/publish-image.sh"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          "dist/release/*.tar.gz",
+          "dist/release/*.tar.gz.sha256"
+        ],
+        "successComment": false,
+        "failComment": false,
+        "labels": false
+      }
+    ]
+  ]
+}

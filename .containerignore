@@ -1,0 +1,9 @@
+.git
+dist
+data
+coverage.out
+test.json
+junit.xml
+docs
+web/node_modules
+web/dist

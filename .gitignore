@@ -1,0 +1,26 @@
+# build output
+/dist/
+/web/node_modules/
+/web/dist/*
+!/web/dist/.gitkeep
+/docs/build/
+/docs/node_modules/
+/docs/.docusaurus/
+
+# local runtime data: SQLite databases, uploaded assets, local config
+/data/
+*.db
+*.db-wal
+*.db-shm
+/servly.yaml
+
+# test and coverage output
+/coverage.out
+/coverage.html
+/junit.xml
+/test.json
+
+# editors and OS
+.idea/
+.vscode/
+.DS_Store
