@@ -1,0 +1,9 @@
+{
+  "name": "servly",
+  "short_name": "servly",
+  "start_url": "/staff",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f6f5c",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
