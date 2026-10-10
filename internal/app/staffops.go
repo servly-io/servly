@@ -188,7 +188,8 @@ func (a *App) SettlePayment(ctx context.Context, p *Principal, paymentID uuid.UU
 	})
 }
 
-// RefundPayment records a refund given back outside servly.
+// RefundPayment records a refund: given back outside servly for manual
+// payments, or through the provider for online ones.
 func (a *App) RefundPayment(ctx context.Context, p *Principal, paymentID uuid.UUID, amount money.Amount, reason string) (*OrderDetail, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
@@ -197,6 +198,17 @@ func (a *App) RefundPayment(ctx context.Context, p *Principal, paymentID uuid.UU
 	pm, err := paymentsql.New(a.DB).Get(ctx, p.TenantID(), paymentID)
 	if err != nil {
 		return nil, err
+	}
+	if pm.Provider != "" {
+		// Money taken online goes back through the provider first; servly
+		// records the refund only once the provider accepted it.
+		check := *pm
+		if err := check.Refund(amount); err != nil {
+			return nil, err
+		}
+		if err := a.refundOnline(ctx, p, pm, amount); err != nil {
+			return nil, err
+		}
 	}
 	return a.changePayments(ctx, p, pm.OrderID, func(tx *sql.Tx, _ *orders.Order, _ []payments.Payment) error {
 		st := paymentsql.New(tx)

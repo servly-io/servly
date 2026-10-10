@@ -8,7 +8,9 @@ import (
 	"log/slog"
 
 	"github.com/servly-io/servly/internal/notifications"
+	"github.com/servly-io/servly/internal/payments/provider"
 	"github.com/servly-io/servly/internal/platform/database"
+	"github.com/servly-io/servly/internal/platform/secretbox"
 	"github.com/servly-io/servly/internal/storage"
 )
 
@@ -20,6 +22,10 @@ type App struct {
 	Files *storage.Local
 	// Events receives order changes after commit, for the staff SSE stream.
 	Events *notifications.Broker
+	// Secrets seals payment provider credentials; nil disables online payments.
+	Secrets *secretbox.Box
+	// Providers are the payment providers this server offers, by id.
+	Providers map[string]provider.Provider
 	// SetupToken is the secret the first-run setup asks for (NewSetupToken);
 	// empty keeps the setup in the browser closed.
 	SetupToken string

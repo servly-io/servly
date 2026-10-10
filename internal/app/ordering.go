@@ -39,6 +39,8 @@ type PublicMenu struct {
 	Location   tenant.Location
 	Dining     dining.Location
 	Categories []PublicCategory
+	// Payment is how guests here can pay online.
+	Payment GuestPayment
 }
 
 type PublicCategory struct {
@@ -84,7 +86,7 @@ func (a *App) GetPublicMenu(ctx context.Context, token string) (*PublicMenu, err
 	if err != nil {
 		return nil, err
 	}
-	pm := &PublicMenu{Location: *loc, Dining: *d}
+	pm := &PublicMenu{Location: *loc, Dining: *d, Payment: a.guestPaymentFor(ctx, loc, d.Kind)}
 	for _, c := range cats {
 		if !c.IsEnabled {
 			continue
@@ -119,6 +121,8 @@ type PlacedOrder struct {
 	// Replayed is true when the idempotency key matched an earlier
 	// submission and that order is returned again.
 	Replayed bool
+	// PayOnline: the guest may pay this order online now.
+	PayOnline bool
 }
 
 // ValidIdempotencyKey reports whether k is an acceptable Idempotency-Key.
@@ -181,6 +185,10 @@ func (a *App) placeOrder(ctx context.Context, in PlaceOrderInput, now time.Time)
 			return nil
 		}
 
+		// Where guests must pay first, an order only comes from a paid checkout.
+		if gp, _ := a.guestPayment(ctx, tx, loc.TenantID, loc.ID, d.Kind); gp == GuestPayment(payments.FlowBefore) {
+			return payments.ErrPayFirst
+		}
 		m, err := guestMenu(ctx, tx, loc)
 		if err != nil {
 			return err
@@ -269,7 +277,13 @@ func (a *App) GetPublicOrder(ctx context.Context, token string) (*PlacedOrder, e
 			name = d.Name
 		}
 	}
-	return &PlacedOrder{Order: o, DiningName: name}, nil
+	kind := dining.KindTable
+	if o.Mode == orders.ModePickup {
+		kind = dining.KindPickup
+	}
+	payLater := payments.Flow(a.guestPaymentFor(ctx, loc, kind)).PayLater()
+	owing := o.PaymentStatus == payments.StatusUnpaid
+	return &PlacedOrder{Order: o, DiningName: name, PayOnline: payLater && owing && o.Status != orders.StatusCancelled}, nil
 }
 
 // Quote prices a guest's cart against the live menu without storing

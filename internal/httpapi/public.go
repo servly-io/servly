@@ -84,6 +84,9 @@ type publicMenuJSON struct {
 		Kind dining.Kind `json:"kind"`
 	} `json:"dining_location"`
 	Categories []publicCategoryJSON `json:"categories"`
+	// Payment: how guests here can pay online: none, before (pay to order),
+	// after (order, then pay from the phone) or either.
+	Payment app.GuestPayment `json:"payment"`
 }
 
 func (s *server) publicMenu(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +102,7 @@ func (s *server) publicMenu(w http.ResponseWriter, r *http.Request) {
 	var v publicMenuJSON
 	v.Restaurant.Name, v.Restaurant.Currency, v.Restaurant.OrderNotesEnabled = pm.Location.Name, pm.Location.Currency, pm.Location.OrderNotesEnabled
 	v.DiningLocation.Name, v.DiningLocation.Kind = pm.Dining.Name, pm.Dining.Kind
+	v.Payment = pm.Payment
 	v.Categories = []publicCategoryJSON{}
 	for _, c := range pm.Categories {
 		cv := publicCategoryJSON{ID: c.ID, Name: c.Name, Description: c.Description, Items: []publicItemJSON{}}
@@ -255,6 +259,8 @@ type publicOrderJSON struct {
 	Notes          string          `json:"notes"`
 	Items          []lineJSON      `json:"items"`
 	CreatedAt      time.Time       `json:"created_at"`
+	// PayOnline: the guest may pay this order online now.
+	PayOnline bool `json:"pay_online"`
 }
 
 func linesView(ls []orders.Line) []lineJSON {
@@ -274,5 +280,5 @@ func publicOrderView(p *app.PlacedOrder) publicOrderJSON {
 	o := p.Order
 	return publicOrderJSON{OrderToken: o.PublicToken, Number: o.Number, Status: o.Status, PaymentStatus: o.PaymentStatus,
 		Mode: o.Mode, DiningLocation: p.DiningName, Currency: o.Currency, Subtotal: o.Subtotal, Total: o.Total,
-		Notes: o.Notes, Items: linesView(o.Lines), CreatedAt: o.CreatedAt.Time}
+		Notes: o.Notes, Items: linesView(o.Lines), CreatedAt: o.CreatedAt.Time, PayOnline: p.PayOnline}
 }

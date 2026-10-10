@@ -94,7 +94,11 @@ func NewHandler(d Deps) http.Handler {
 		r.Post("/setup", s.completeSetup)
 		r.Post("/setup/verify", s.verifySetupToken)
 		r.Route("/auth", s.authRoutes)
-		r.Route("/public", s.publicRoutes)
+		r.Route("/public", func(r chi.Router) {
+			s.publicRoutes(r)
+			s.paymentPublicRoutes(r)
+		})
+		r.Route("/payments", s.paymentProviderRoutes)
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(s.authenticated, s.csrf, s.requireTenant)
 			s.adminRoutes(r)
@@ -116,6 +120,7 @@ func (s *server) adminRoutes(r chi.Router) {
 	s.diningRoutes(r)
 	s.assetRoutes(r)
 	s.orderRoutes(r)
+	s.paymentAdminRoutes(r)
 }
 
 // NewServer wraps a handler in an http.Server with conservative timeouts.

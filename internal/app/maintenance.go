@@ -6,6 +6,7 @@ import (
 
 	"github.com/servly-io/servly/internal/auth"
 	"github.com/servly-io/servly/internal/orders/ordersql"
+	"github.com/servly-io/servly/internal/payments/paymentsql"
 	"github.com/servly-io/servly/internal/platform/database"
 )
 
@@ -33,5 +34,9 @@ func (a *App) maintain(ctx context.Context, now time.Time) {
 	}
 	if _, err := ordersql.New(a.DB).DeleteExpiredIdempotency(ctx, database.Timestamp{Time: now}); err != nil && ctx.Err() == nil {
 		a.Log.WarnContext(ctx, "purge expired idempotency records", "error", err)
+	}
+	// Provider events only serve deduplication of retried webhooks.
+	if _, err := paymentsql.New(a.DB).DeleteEventsBefore(ctx, database.Timestamp{Time: now.Add(-30 * 24 * time.Hour)}); err != nil && ctx.Err() == nil {
+		a.Log.WarnContext(ctx, "purge old payment events", "error", err)
 	}
 }

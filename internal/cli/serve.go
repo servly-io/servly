@@ -16,6 +16,10 @@ import (
 
 	"github.com/servly-io/servly/internal/app"
 	"github.com/servly-io/servly/internal/httpapi"
+	"github.com/servly-io/servly/internal/payments/provider"
+	"github.com/servly-io/servly/internal/payments/provider/sandbox"
+	"github.com/servly-io/servly/internal/payments/provider/stripe"
+	"github.com/servly-io/servly/internal/platform/secretbox"
 	"github.com/servly-io/servly/internal/storage"
 	"github.com/servly-io/servly/web"
 )
@@ -73,6 +77,17 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 	stop := make(chan struct{})
 	application := app.New(db, log)
 	application.Files = storage.NewLocal(filepath.Join(cfg.DataDir, "assets"))
+	application.Providers = map[string]provider.Provider{"stripe": stripe.New()}
+	if cfg.PaymentsSandbox {
+		application.Providers["sandbox"] = sandbox.New()
+		log.Warn("payments sandbox is on: guests can 'pay' on a fake checkout page; never use it for real guests")
+	}
+	if cfg.SecretKey != "" {
+		// Validated when the configuration was loaded.
+		application.Secrets, _ = secretbox.Parse(cfg.SecretKey)
+	} else {
+		log.Info("online payments are off: set secret_key (SERVLY_SECRET_KEY) to enable them")
+	}
 	if schemaCurrent {
 		required, err := application.SetupRequired(ctx)
 		if err != nil {
@@ -87,6 +102,9 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 		}
 	}
 	go application.RunMaintenance(ctx, time.Hour)
+	if schemaCurrent {
+		go application.RunPaymentReconciler(ctx, 5*time.Second)
+	}
 
 	handler := httpapi.NewHandler(httpapi.Deps{
 		Log:           log,

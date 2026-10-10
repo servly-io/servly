@@ -83,6 +83,8 @@ type paymentJSON struct {
 	Refunded   money.Amount    `json:"refunded_minor"`
 	Currency   money.Currency  `json:"currency"`
 	Reference  string          `json:"reference"`
+	Provider   string          `json:"provider"`
+	Detail     string          `json:"detail"`
 	RecordedBy *actorJSON      `json:"recorded_by"`
 	CreatedAt  time.Time       `json:"created_at"`
 }
@@ -118,8 +120,9 @@ func (s *server) detailView(r *http.Request, d *app.OrderDetail) (orderDetailJSO
 	}
 	for _, p := range d.Payments {
 		v.Payments = append(v.Payments, paymentJSON{ID: p.ID, Method: p.Method, Status: p.Status, Amount: p.Amount,
-			Refunded: p.Refunded, Currency: p.Currency, Reference: p.Reference, RecordedBy: actor(p.RecordedByUserID, d.Actors),
-			CreatedAt: p.CreatedAt.Time})
+			Refunded: p.Refunded, Currency: p.Currency, Reference: p.Reference, Provider: p.Provider, Detail: p.Detail,
+			RecordedBy: actor(p.RecordedByUserID, d.Actors),
+			CreatedAt:  p.CreatedAt.Time})
 	}
 	return v, nil
 }
