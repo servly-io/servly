@@ -68,6 +68,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 		log.Warn("schema migrations pending; run `servly migrate up`", "current", state.Current, "latest", state.Latest)
 	}
 
+	stop := make(chan struct{})
 	application := app.New(db, log)
 	application.Files = storage.NewLocal(filepath.Join(cfg.DataDir, "assets"))
 	go application.RunMaintenance(ctx, time.Hour)
@@ -80,6 +81,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 		CookieSecure:  cfg.CookieSecure,
 		TrustProxy:    cfg.TrustProxy,
 		PublicBaseURL: cfg.PublicBaseURL,
+		Stop:          stop,
 		Ready: func(ctx context.Context) error {
 			if err := db.PingContext(ctx); err != nil {
 				return err
@@ -113,6 +115,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 	case <-ctx.Done():
 	}
 	log.Info("shutting down")
+	close(stop)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {

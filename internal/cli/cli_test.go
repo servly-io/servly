@@ -189,3 +189,54 @@ func TestTenantCreateAndSetPassword(t *testing.T) {
 		t.Fatalf("set-password: %q %v", out, err)
 	}
 }
+
+// An open staff event stream must not hold up a graceful shutdown.
+func TestShutdownEndsEventStreams(t *testing.T) {
+	isolate(t)
+	dir := t.TempDir()
+	if _, err := runWithStdin(t, "correct horse battery\n", "tenant", "create", "--data-dir="+dir,
+		"--name=Roma", "--timezone=Europe/Berlin", "--owner-email=anna@example.com", "--password-stdin"); err != nil {
+		t.Fatal(err)
+	}
+	f := &rootFlags{}
+	cmd := newServeCommand(f)
+	cmd.SetErr(&bytes.Buffer{})
+	if err := cmd.ParseFlags([]string{"--listen-addr=127.0.0.1:0", "--data-dir=" + dir}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	ready := make(chan string, 1)
+	done := make(chan error, 1)
+	go func() { done <- serve(ctx, cmd, f, ready) }()
+	base := "http://" + <-ready
+
+	resp, err := http.Post(base+"/api/auth/login", "application/json",
+		strings.NewReader(`{"email":"anna@example.com","password":"correct horse battery"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	req, _ := http.NewRequest(http.MethodGet, base+"/api/admin/events", nil)
+	for _, c := range resp.Cookies() {
+		req.AddCookie(c)
+	}
+	stream, err := http.DefaultClient.Do(req)
+	if err != nil || stream.StatusCode != http.StatusOK {
+		t.Fatalf("events: %v %v", err, stream)
+	}
+	defer stream.Body.Close()
+
+	start := time.Now()
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("serve: %v", err)
+		}
+		if d := time.Since(start); d > 3*time.Second {
+			t.Fatalf("shutdown took %v", d)
+		}
+	case <-time.After(shutdownGrace + 2*time.Second):
+		t.Fatal("shutdown hung on the event stream")
+	}
+}

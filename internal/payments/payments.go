@@ -53,7 +53,64 @@ var (
 	ErrInvalidMethod     = apperr.Invalid("invalid_payment_method", "unknown payment method")
 	ErrInvalidAmount     = apperr.Invalid("invalid_payment_amount", "payment amount is not valid for this order")
 	ErrInvalidRefund     = apperr.Invalid("invalid_refund_amount", "refund must be positive and not exceed the unrefunded amount")
+	ErrConflict          = apperr.Conflict("payment_conflict", "the payment was changed by someone else")
+	ErrReferenceTooLong  = apperr.Invalid("reference_too_long", "the reference is at most 100 characters")
+	ErrCardData          = apperr.Invalid("reference_looks_like_card", "the reference looks like a card number; never enter card data")
 )
+
+// MaxReferenceLen bounds the free-text payment reference.
+const MaxReferenceLen = 100
+
+// CheckReference rejects references that are too long or contain something
+// shaped like a payment card number (13-19 digits, spaces or dashes allowed,
+// passing the Luhn check). servly must never store card data.
+func CheckReference(ref string) error {
+	if len([]rune(ref)) > MaxReferenceLen {
+		return ErrReferenceTooLong
+	}
+	var digits []int
+	flush := func() bool {
+		defer func() { digits = digits[:0] }()
+		for start := 0; start < len(digits); start++ {
+			for end := start + 13; end <= len(digits) && end-start <= 19; end++ {
+				if luhn(digits[start:end]) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for _, r := range ref {
+		switch {
+		case r >= '0' && r <= '9':
+			digits = append(digits, int(r-'0'))
+		case r == ' ' || r == '-':
+		default:
+			if flush() {
+				return ErrCardData
+			}
+		}
+	}
+	if flush() {
+		return ErrCardData
+	}
+	return nil
+}
+
+func luhn(d []int) bool {
+	sum := 0
+	for i := len(d) - 1; i >= 0; i-- {
+		v := d[i]
+		if (len(d)-1-i)%2 == 1 {
+			v *= 2
+			if v > 9 {
+				v -= 9
+			}
+		}
+		sum += v
+	}
+	return sum%10 == 0
+}
 
 // ValidateTransition reports whether a payment may move from one status to
 // another. Changing to the status a payment already has is not a transition,

@@ -5,7 +5,7 @@ title: API
 
 This page is the HTTP contract between the server, the web app and any other client. MASTER_PLAN.md §9 proposed the starting paths; this page is now authoritative, and [Changes from the plan](#changes-from-the-plan) lists where it departs from §9. Agents implement against this page. Change the page first, in the same change set as the code.
 
-Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) with image upload, [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points), and the [public API](#public-api): menu, idempotent order placement, order status.
+Status: **implemented contract**. Implemented: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) with image upload, [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points), the [public API](#public-api): menu, quote, idempotent order placement, order status, and the [staff order API](#staff-api-orders) with payments and live events. Everything in this contract is implemented.
 
 ## Conventions
 
@@ -48,7 +48,7 @@ Every error has one shape:
 | 429 | - | `rate_limited`, with `Retry-After` |
 | 500 | - | `internal_error`; details are logged, never returned |
 
-Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`, `file_required`, `unsupported_media_type`, `asset_too_large`, `idempotency_key_required`, `empty_order`, `too_many_lines`, `invalid_quantity`, `item_unavailable`, `option_unavailable`, `invalid_option_selection`, `notes_too_long`, `notes_disabled`, `negative_line_price`, `invalid_cursor`. A new code goes into this list in the same change.
+Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`, `file_required`, `unsupported_media_type`, `asset_too_large`, `idempotency_key_required`, `empty_order`, `too_many_lines`, `invalid_quantity`, `item_unavailable`, `option_unavailable`, `invalid_option_selection`, `notes_too_long`, `notes_disabled`, `negative_line_price`, `invalid_cursor`, `payment_conflict`, `reference_too_long`, `reference_looks_like_card`. A new code goes into this list in the same change.
 
 ## Authentication and tenant context
 
@@ -194,7 +194,7 @@ Query: `status` (repeatable), `mode`, `limit`, `cursor`. Newest first. Each item
 
 ### `GET /api/admin/orders/{id}`
 
-Returns an [order](#order-object) with `events` (status history) and `payments`.
+Returns an [order](#order-object) with `outstanding_minor`, `events` (status history: `{from, to, actor: {id, name} | null, reason, created_at}`; the first event has `from: null` and no actor) and `payments` (`{id, method, status, amount_minor, refunded_minor, currency, reference, recorded_by, created_at}`).
 
 ### `PATCH /api/admin/orders/{id}/status`
 
@@ -204,7 +204,7 @@ Permission `orders.update_status`, or `orders.cancel_started` to cancel a `prepa
 { "status": "accepted", "version": 3, "reason": "" }
 ```
 
-`200` returns the updated order. Errors: `422 invalid_transition` or `reason_required`, `403 forbidden`, `409 order_conflict` (refetch and retry if still intended).
+`200` returns the order detail. Errors: `422 invalid_transition` or `reason_required`, `403 forbidden`, `409 order_conflict` when `version` is not the current one (refetch and retry if still intended).
 
 ### `POST /api/admin/orders/{id}/payments`
 
@@ -214,11 +214,11 @@ Permission `payments.record`.
 { "method": "external_terminal", "status": "paid", "amount_minor": 2500, "reference": "TID 4411 #0193" }
 ```
 
-`201` returns the payment and the order's new `payment_status`. The amount must equal the outstanding amount. `reference` is free text of at most 100 characters. It must never contain card data, and the UI says so.
+`200` returns the order detail with the new `payment_status`. `status` is `paid` or `pending` (waiting for the terminal). The amount must equal the outstanding amount (`422 invalid_payment_amount`). `reference` is free text of at most 100 characters; anything shaped like a card number (13-19 digits passing the Luhn check) is refused with `422 reference_looks_like_card`.
 
 ### `PATCH /api/admin/payments/{id}`
 
-Permission `payments.record`. It resolves a pending payment.
+Permission `payments.record`. It resolves a pending payment as `paid` or `failed`; returns the order detail.
 
 ```json
 { "status": "paid" }
@@ -231,6 +231,8 @@ Permission `payments.refund`.
 ```json
 { "amount_minor": 500, "reason": "cold pizza" }
 ```
+
+Returns the order detail. The reason is required.
 
 ### `GET /api/admin/events`
 
@@ -249,7 +251,7 @@ data: {"order_id":"…","version":4}
 : keepalive
 ```
 
-Event names: `order.created`, `order.updated` (status or payment change). A keepalive comment is sent every 25 s. Events are hints: on any event, fetch the order. On (re)connect, after `ready`, refetch the board. There is no replay and no `Last-Event-ID` support.
+Event names: `order.created`, `order.updated` (status or payment change), and `resync` when this connection missed events (a slow client). A keepalive comment is sent every 25 s, and `retry: 3000` sets the reconnect delay. Events are hints: on any event, fetch the order. On (re)connect, after `ready`, and on `resync`, refetch the board. There is no replay and no `Last-Event-ID` support. The stream ends when the server shuts down; clients reconnect.
 
 ### Order object
 

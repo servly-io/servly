@@ -100,3 +100,23 @@ func TestSummarize(t *testing.T) {
 }
 
 func moneyAmount(v int64) money.Amount { return money.Amount(v) }
+
+func TestCheckReference(t *testing.T) {
+	for _, ok := range []string{"", "TID 4411 #0193", "receipt 000123", "1234567890"} {
+		if err := CheckReference(ok); err != nil {
+			t.Errorf("%q rejected: %v", ok, err)
+		}
+	}
+	for _, card := range []string{"4111111111111111", "4111 1111 1111 1111", "visa 4111-1111-1111-1111 ok", "5555555555554444"} {
+		if err := CheckReference(card); !errors.Is(err, ErrCardData) {
+			t.Errorf("%q accepted: %v", card, err)
+		}
+	}
+	long := make([]rune, MaxReferenceLen+1)
+	for i := range long {
+		long[i] = 'x'
+	}
+	if err := CheckReference(string(long)); !errors.Is(err, ErrReferenceTooLong) {
+		t.Errorf("long: %v", err)
+	}
+}

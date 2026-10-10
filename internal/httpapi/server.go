@@ -43,6 +43,9 @@ type Deps struct {
 	PublicBaseURL string
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
+	// Stop is closed when the server shuts down, ending long-lived SSE
+	// streams so a graceful shutdown does not wait for them.
+	Stop <-chan struct{}
 }
 
 type server struct {
@@ -109,6 +112,7 @@ func (s *server) adminRoutes(r chi.Router) {
 	s.menuRoutes(r)
 	s.diningRoutes(r)
 	s.assetRoutes(r)
+	s.orderRoutes(r)
 }
 
 // NewServer wraps a handler in an http.Server with conservative timeouts.
