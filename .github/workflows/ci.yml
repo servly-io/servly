@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - name: gofmt check
+        run: test -z "$(gofmt -l .)"
+      - run: make lint
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: make web-lint
+      - run: make web-typecheck
+      - run: make web
+
+  build-test:
+    runs-on: ubuntu-latest
+    # PostgreSQL for the integration half of the suite: every test that uses
+    # dbtest.Each runs on SQLite and on this server.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: servly
+          POSTGRES_PASSWORD: servly
+          POSTGRES_DB: servly
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U servly"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SERVLY_TEST_POSTGRES_URL: postgres://servly:servly@localhost:5432/servly?sslmode=disable
+    permissions:
+      contents: read
+      checks: write        # the test report on the PR
+      pull-requests: write # the test summary comment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: make build
+
+      - name: tests on SQLite and PostgreSQL (race, coverage, junit)
+        run: make test-report
+
+      - name: coverage summary
+        if: always()
+        run: |
+          {
+            echo '## Unit test coverage'
+            scripts/coverage-summary.sh coverage.out --markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: publish test report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: junit.xml
+          check_name: unit tests
+          detailed_summary: true
+          include_passed: false
+
+      # Optional: set CODECOV_TOKEN in the repository secrets to get coverage
+      # trends and per-PR diffs on codecov.io. Without it this step is a no-op.
+      - uses: codecov/codecov-action@v4
+        if: always() && env.CODECOV_TOKEN != ''
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.out
+          flags: unit
+          fail_ci_if_error: false
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            coverage.out
+            junit.xml
+            test.json
+          retention-days: 14
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install podman
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq podman uidmap
+      - run: make image VERSION=ci IMAGE=servly:ci CONTAINER=podman
+      - name: smoke test
+        run: |
+          podman run --rm servly:ci version
+          podman run -d --name servly -p 8080:8080 -v servly-data:/data servly:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8080/readyz && break; sleep 1; done
+          curl -fsS localhost:8080/readyz
+          curl -fsS localhost:8080/ | grep -q '<div id="root">'
+          podman logs servly

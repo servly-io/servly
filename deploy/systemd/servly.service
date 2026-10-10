@@ -1,0 +1,47 @@
+# servly as a system service on a minimal Linux host.
+# Install: docs/docs/local-deployment.md
+#
+#   sudo useradd --system --home-dir /var/lib/servly --shell /usr/sbin/nologin servly
+#   sudo install -m 0755 servly /usr/local/bin/servly
+#   sudo install -m 0644 deploy/systemd/servly.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now servly
+
+[Unit]
+Description=servly restaurant order management
+After=network.target
+# Works without a network: local ordering must not depend on the internet.
+Wants=network.target
+
+[Service]
+Type=simple
+User=servly
+Group=servly
+ExecStart=/usr/local/bin/servly serve
+Restart=on-failure
+RestartSec=2s
+
+# State: SQLite database and uploaded assets in /var/lib/servly.
+StateDirectory=servly
+StateDirectoryMode=0750
+WorkingDirectory=/var/lib/servly
+Environment=SERVLY_DATA_DIR=/var/lib/servly
+Environment=SERVLY_LISTEN_ADDR=:8080
+# Optional settings, such as SERVLY_LOG_LEVEL; see `servly config view`.
+EnvironmentFile=-/etc/servly-io/servly.env
+
+# Hardening: the service needs its state directory and the network, nothing else.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
