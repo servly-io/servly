@@ -6,7 +6,9 @@ import { SettingsPage } from './admin/SettingsPage';
 import { SetupPage } from './admin/SetupPage';
 import { StaffPage } from './admin/StaffPage';
 import { TablesPage, TablesPrintPage } from './admin/TablesPage';
+import { CartPage } from './customer/CartPage';
 import { MenuPage } from './customer/MenuPage';
+import { OrderStatusPage } from './customer/OrderStatusPage';
 import { Home } from './shared/Home';
 import { LoginPage } from './shared/LoginPage';
 import { Placeholder } from './shared/Placeholder';
@@ -30,7 +32,8 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <Home /> },
       { path: '/m/:token', element: <MenuPage /> },
-      { path: '/o/:token', element: <Placeholder title="Your order" phase="Phase 3, customer ordering" /> },
+      { path: '/m/:token/cart', element: <CartPage /> },
+      { path: '/o/:token', element: <OrderStatusPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/staff', element: <RequireSession><OrderBoard /></RequireSession> },
       {

@@ -146,3 +146,64 @@ export interface StaffMember {
   role: Role;
   status: 'active' | 'disabled';
 }
+
+export interface PublicMenu {
+  restaurant: { name: string; currency: Currency; order_notes_enabled: boolean };
+  dining_location: { name: string; kind: DiningKind };
+  categories: {
+    id: string;
+    name: string;
+    description: string;
+    items: {
+      id: string;
+      name: string;
+      description: string;
+      price_minor: MinorUnits;
+      image_url: string | null;
+      available: boolean;
+      option_groups: {
+        id: string;
+        name: string;
+        min_select: number;
+        max_select: number;
+        options: { id: string; name: string; price_delta_minor: MinorUnits; available: boolean }[];
+      }[];
+    }[];
+  }[];
+}
+
+export type PublicMenuItem = PublicMenu['categories'][number]['items'][number];
+
+export interface OrderLine {
+  name: string;
+  quantity: number;
+  unit_price_minor: MinorUnits;
+  options_total_minor: MinorUnits;
+  line_total_minor: MinorUnits;
+  notes: string;
+  options: { group_name: string; option_name: string; price_delta_minor: MinorUnits }[];
+}
+
+export interface Quote {
+  mode: OrderMode;
+  dining_location: string;
+  currency: Currency;
+  subtotal_minor: MinorUnits;
+  total_minor: MinorUnits;
+  items: OrderLine[];
+}
+
+export interface PublicOrder extends Quote {
+  order_token: string;
+  number: number;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  notes: string;
+  created_at: string;
+}
+
+export interface OrderRequest {
+  dining_location_token: string;
+  notes: string;
+  items: { menu_item_id: string; quantity: number; option_ids: string[]; notes: string }[];
+}

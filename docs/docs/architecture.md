@@ -91,8 +91,9 @@ The flow is: commit, then publish an event to the process-local broadcaster (`in
 
 | Route | Who | Phase |
 |---|---|---|
-| `/m/:token` | customer, from a table QR code | 3 |
-| `/o/:token` | customer, order status | 3 |
+| `/m/:token` | customer, from a table QR code: menu, item options, cart | 3 |
+| `/m/:token/cart` | customer: review with server-quoted prices, submit (one idempotency key per checkout, reused on retry) | 3 |
+| `/o/:token` | customer: confirmation and status, polled every 15 s | 3 |
 | `/staff` | staff order board | 4 |
 | `/admin/*` | members; editing needs the matching permission: setup checklist, menu, item editor, tables and QR print sheet, staff, settings | 2 |
 | `/login` | staff sign-in | 2 |
