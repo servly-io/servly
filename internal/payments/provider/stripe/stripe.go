@@ -342,14 +342,14 @@ func (c *Client) Refund(ctx context.Context, cr provider.Credentials, paymentRef
 	return nil
 }
 
-// Currency units. servly stores ISO 4217 minor units. Stripe uses the same
-// unit for most currencies; a few differ.
-// shortcut: currencies whose units differ between ISO and Stripe (ISK, HUF,
-// TWD, MGA and three-decimal ones) are refused rather than converted; add
-// the conversion when a restaurant needs one of them.
+// Currency units. servly stores minor units by its own table (money.Digits).
+// Stripe counts in its smallest unit: none for its zero-decimal currencies,
+// cents for the rest, so servly's whole rupiah become Stripe's hundredths.
+// shortcut: HUF, TWD and ISK (special rounding rules at Stripe) and
+// three-decimal currencies are refused; add them when a restaurant needs one.
 var (
 	stripeZeroDecimal = set("BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF")
-	stripeSpecial     = set("HUF", "TWD", "ISK", "MGA")
+	stripeSpecial     = set("HUF", "TWD", "ISK")
 )
 
 func set(cs ...string) map[money.Currency]bool {
@@ -360,24 +360,34 @@ func set(cs ...string) map[money.Currency]bool {
 	return m
 }
 
-func sameUnits(cur money.Currency) bool {
-	iso := money.Digits(cur)
-	if stripeSpecial[cur] || iso == 3 {
-		return false
+// scale is what servly's amount is multiplied by to get Stripe's.
+func scale(cur money.Currency) (int64, error) {
+	servly, stripe := money.Digits(cur), 2
+	if stripeZeroDecimal[cur] {
+		stripe = 0
 	}
-	return (iso == 0) == stripeZeroDecimal[cur]
+	if stripeSpecial[cur] || servly == 3 || stripe < servly {
+		return 0, provider.ErrCurrency.WithDetails(map[string]any{"currency": cur})
+	}
+	f := int64(1)
+	for range stripe - servly {
+		f *= 10
+	}
+	return f, nil
 }
 
 func toStripe(a money.Amount, cur money.Currency) (int64, error) {
-	if !sameUnits(cur) {
-		return 0, provider.ErrCurrency.WithDetails(map[string]any{"currency": cur})
-	}
-	return int64(a), nil
+	f, err := scale(cur)
+	return int64(a) * f, err
 }
 
 func fromStripe(a int64, cur money.Currency) (money.Amount, error) {
-	if !sameUnits(cur) {
-		return 0, provider.ErrCurrency.WithDetails(map[string]any{"currency": cur})
+	f, err := scale(cur)
+	if err != nil {
+		return 0, err
 	}
-	return money.Amount(a), nil
+	if a%f != 0 {
+		return 0, provider.ErrCurrency.WithMessage("Stripe amount %d %s is not a whole %s amount", a, cur, cur)
+	}
+	return money.Amount(a / f), nil
 }

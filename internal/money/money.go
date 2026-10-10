@@ -77,11 +77,15 @@ func abs(a Amount) Amount {
 	return a
 }
 
-// Minor-unit digits per ISO 4217. The web client uses the browser's Intl
-// tables, which agree for every currency listed here.
+// Minor-unit digits: servly's one definition, used by the server and (as a
+// copy in web/src/shared/money.ts, checked by a test) by the web app. It is
+// CLDR 48, what current browsers show: whole units for IDR, HUF, COP and
+// others, where ISO 4217 still lists cents nobody uses. Browsers must not
+// decide this themselves: older and newer ones disagree (IDR 2 vs 0), and a
+// price typed on one would be read 100 times off on the other.
 var (
-	zeroDecimal  = map[Currency]bool{"BIF": true, "CLP": true, "DJF": true, "GNF": true, "ISK": true, "JPY": true, "KMF": true, "KRW": true, "PYG": true, "RWF": true, "UGX": true, "VND": true, "VUV": true, "XAF": true, "XOF": true, "XPF": true}
-	threeDecimal = map[Currency]bool{"BHD": true, "IQD": true, "JOD": true, "KWD": true, "LYD": true, "OMR": true, "TND": true}
+	zeroDecimal  = map[Currency]bool{"AFN": true, "ALL": true, "BIF": true, "CLP": true, "COP": true, "DJF": true, "GNF": true, "HUF": true, "IDR": true, "IQD": true, "IRR": true, "ISK": true, "JPY": true, "KMF": true, "KPW": true, "KRW": true, "LAK": true, "LBP": true, "MGA": true, "MMK": true, "PKR": true, "PYG": true, "RWF": true, "SLL": true, "SOS": true, "SYP": true, "UGX": true, "VND": true, "VUV": true, "XAF": true, "XOF": true, "XPF": true, "YER": true}
+	threeDecimal = map[Currency]bool{"BHD": true, "JOD": true, "KWD": true, "LYD": true, "OMR": true, "TND": true}
 )
 
 // Digits is the number of minor-unit digits of a currency: 2 for EUR, 0 for JPY.

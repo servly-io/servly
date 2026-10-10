@@ -1,8 +1,15 @@
 import type { Currency, MinorUnits } from '../api/types';
 
-/** Number of decimal places the currency uses (2 for EUR, 0 for JPY). */
+// Minor-unit digits: a copy of internal/money/money.go (a Go test keeps the two
+// in step). Not the browser's opinion: browsers with older currency data say
+// IDR has 2 decimals, newer ones 0, and a price typed on one device would show
+// 100 times off on another.
+const zeroDecimal = new Set(['AFN', 'ALL', 'BIF', 'CLP', 'COP', 'DJF', 'GNF', 'HUF', 'IDR', 'IQD', 'IRR', 'ISK', 'JPY', 'KMF', 'KPW', 'KRW', 'LAK', 'LBP', 'MGA', 'MMK', 'PKR', 'PYG', 'RWF', 'SLL', 'SOS', 'SYP', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF', 'YER']);
+const threeDecimal = new Set(['BHD', 'JOD', 'KWD', 'LYD', 'OMR', 'TND']);
+
+/** Number of decimal places the currency uses (2 for EUR, 0 for JPY and IDR). */
 export function currencyDigits(currency: Currency): number {
-  return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
+  return zeroDecimal.has(currency) ? 0 : threeDecimal.has(currency) ? 3 : 2;
 }
 
 /**
@@ -10,8 +17,9 @@ export function currencyDigits(currency: Currency): number {
  * the server, never from this function.
  */
 export function formatMoney(minor: MinorUnits, currency: Currency, locale?: string): string {
-  const fmt = new Intl.NumberFormat(locale, { style: 'currency', currency });
-  return fmt.format(minor / 10 ** currencyDigits(currency));
+  const digits = currencyDigits(currency);
+  const fmt = new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return fmt.format(minor / 10 ** digits);
 }
 
 /**

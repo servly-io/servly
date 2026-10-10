@@ -147,11 +147,24 @@ func TestParseWebhook(t *testing.T) {
 }
 
 func TestCurrencyUnits(t *testing.T) {
-	for cur, ok := range map[money.Currency]bool{"EUR": true, "SGD": true, "MYR": true, "USD": true, "IDR": true, "JPY": true,
-		"ISK": false, "HUF": false, "KWD": false} {
-		_, err := toStripe(100, cur)
-		if (err == nil) != ok {
-			t.Errorf("%s: %v", cur, err)
+	for cur, want := range map[money.Currency]int64{"EUR": 950, "SGD": 950, "USD": 950, "JPY": 950,
+		"IDR": 95000, // servly: whole rupiah; Stripe: hundredths
+		"ISK": -1, "HUF": -1, "KWD": -1} {
+		got, err := toStripe(950, cur)
+		if want < 0 {
+			if err == nil {
+				t.Errorf("%s: accepted", cur)
+			}
+			continue
 		}
+		if err != nil || got != want {
+			t.Errorf("%s: %d %v, want %d", cur, got, err, want)
+		}
+		if back, err := fromStripe(got, cur); err != nil || back != 950 {
+			t.Errorf("%s back: %d %v", cur, back, err)
+		}
+	}
+	if _, err := fromStripe(17050, "IDR"); err == nil {
+		t.Error("IDR with sen accepted")
 	}
 }
