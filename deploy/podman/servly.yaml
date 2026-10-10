@@ -1,0 +1,73 @@
+# servly for one restaurant, on one machine, with Podman.
+#
+# Podman Desktop: Pods > Play Kubernetes YAML > paste this file.
+# Command line:   podman kube play deploy/podman/servly.yaml
+# Stop:           podman kube down deploy/podman/servly.yaml   (keeps the data volume)
+#
+# First start: open the container's logs and copy the setup token from the line
+# "first-run setup: open servly in a browser and enter this setup token", then
+# open http://<this machine>:8080 and follow the setup.
+#
+# Data (SQLite database, uploaded photos) is stored in the volume "servly-data",
+# the same volume `podman run -v servly-data:/data` uses.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: servly-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: servly
+  labels:
+    app: servly
+spec:
+  restartPolicy: Always
+  containers:
+    - name: servly
+      image: ghcr.io/servly-io/servly:latest
+      args: ["serve"]
+      ports:
+        - containerPort: 8080
+          hostPort: 8080
+          protocol: TCP
+      env:
+        # The address in the printed QR codes. Set it to this machine's address
+        # on the restaurant network, or leave it empty to use the address of
+        # the browser that prints the codes.
+        - name: SERVLY_HTTP_PUBLIC_BASE_URL
+          value: ""
+        - name: SERVLY_LOG_FORMAT
+          value: text
+        # Behind an HTTPS reverse proxy, also set:
+        # - name: SERVLY_HTTP_TRUST_PROXY_HEADERS
+        #   value: "true"
+      volumeMounts:
+        - name: data
+          mountPath: /data
+      resources:
+        limits:
+          memory: 512Mi
+          cpu: "1"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      # No liveness or readiness probe: the image is distroless (no shell or
+      # curl), and Podman runs probes inside the container. Monitor
+      # http://<this machine>:8080/readyz from outside instead.
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: servly-data
