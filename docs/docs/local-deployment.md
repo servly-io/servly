@@ -41,19 +41,15 @@ The unit restarts servly on failure and starts it at boot. It allows writes only
 
 1. The server creates the database and applies migrations (`migrate_on_start` is true by default).
 2. `curl localhost:8080/readyz` returns `{"status":"ok"}`.
-3. Create the restaurant and its owner. The command asks for the owner's password:
+3. Copy the setup token from the log. It is in the line `first-run setup: open servly in a browser and enter this setup token`:
 
    ```bash
-   servly tenant create --name "Trattoria Roma" --currency EUR --timezone Europe/Berlin --owner-email anna@example.com
+   podman logs servly 2>&1 | grep setup_token      # container
+   journalctl -u servly | grep setup_token         # systemd
    ```
+4. Open `http://<host>:8080` in a browser. It goes to the setup, which asks for the token, then creates the owner account and the restaurant. Every restart prints a new token until setup is done.
 
-   In a container, pass the password on stdin instead:
-
-   ```bash
-   echo "$OWNER_PASSWORD" | podman exec -i servly servly tenant create --name "Trattoria Roma" \
-     --currency EUR --timezone Europe/Berlin --owner-email anna@example.com --password-stdin
-   ```
-4. Open `http://<host>:8080/login` on a tablet.
+   Everything about the restaurant happens in the browser from here on: menu, tables, staff and settings. The `servly` command is only for running the installation: configuration, migrations, upgrades and recovery ([ADR 0006](adr/0006-cli-scope.md)).
 
 ## Configuration
 

@@ -322,16 +322,39 @@ Permission `dining_locations.manage` for writes.
 
 The last active owner can be neither demoted nor removed (`409 last_owner`).
 
-## Bootstrap
+## First-run setup
 
-A fresh install has no users. The first tenant and owner are created on the server host with the CLI, not over HTTP. This means no unauthenticated setup endpoint exists to race for:
+A fresh installation has no users. Its owner sets it up in the browser at `/setup`, with the setup token that `servly serve` logs on start. From then on, the installation counts as set up ([ADR 0005](adr/0005-first-run-setup.md)).
 
-```bash
-servly tenant create --name "Trattoria Roma" --currency EUR --timezone Europe/Berlin --owner-email anna@example.com
-# prompts for the owner's password
+On a managed platform, the operator provisions tenants with `servly tenant create` instead. This is platform administration, not part of the API ([ADR 0006](adr/0006-cli-scope.md)). The first provisioned tenant also closes the browser setup.
+
+### `GET /api/setup`
+
+`200 {"required": true|false}`. `required` stays true until the first restaurant exists. No session is needed.
+
+### `POST /api/setup`
+
+```json
+{
+  "setup_token": "2133e-b5bc8-97896-1be3c",
+  "restaurant_name": "Trattoria Roma",
+  "currency": "EUR",
+  "timezone": "Europe/Berlin",
+  "owner_name": "Anna Rossi",
+  "owner_email": "anna@example.com",
+  "owner_password": "at least 10 characters"
+}
 ```
 
-The guided setup in the admin UI starts after that first sign-in.
+The request creates the tenant, its location and the owner, and signs the owner in. It answers `201` with the session body of `GET /api/auth/session` and sets the session cookie. No session or CSRF token is needed. The setup token authorizes the request. Case and whitespace in the token are ignored.
+
+| Error | When |
+|---|---|
+| `403 setup_token_invalid` | wrong token, or the server has no token (it started with migrations pending) |
+| `409 setup_complete` | the installation is already set up; this is final |
+| `409 email_taken` | the owner email already has a sign-in |
+| `422` validation codes | `name_required`, `invalid_slug`, `invalid_currency`, `invalid_timezone`, `invalid_email`, `password_too_short`, `password_too_long` |
+| `429 rate_limited` | the per-IP sign-in limit applies |
 
 ## Changes from the plan
 
@@ -341,4 +364,4 @@ The guided setup in the admin UI starts after that first sign-in.
 | - | `PUT /api/auth/session/tenant` | explicit tenant context for users with several memberships (ADR 0004) |
 | - | `PATCH /api/admin/payments/{id}`, `POST …/refund` | the payment lifecycle needs them |
 | - | `/api/admin/settings`, `/api/admin/staff`, `/api/admin/assets`, `…/duplicate`, `…/rotate-token`, `/api/public/assets/{id}` | MVP capabilities of §2.1 |
-| - | `servly tenant create` | first-owner bootstrap without a public setup endpoint |
+| - | `GET /api/setup`, `POST /api/setup` | first-run setup in the browser (ADR 0005); the CLI provisions tenants only on a managed platform (ADR 0006) |

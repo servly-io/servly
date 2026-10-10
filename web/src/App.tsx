@@ -3,6 +3,7 @@ import { AdminLayout } from './admin/AdminLayout';
 import { ItemEditor } from './admin/ItemEditor';
 import { MenuPage as AdminMenuPage } from './admin/MenuPage';
 import { SettingsPage } from './admin/SettingsPage';
+import { SetupWizard } from './admin/SetupWizard';
 import { SetupPage } from './admin/SetupPage';
 import { StaffPage } from './admin/StaffPage';
 import { TablesPage, TablesPrintPage } from './admin/TablesPage';
@@ -22,6 +23,7 @@ import { OrderBoard } from './staff/OrderBoard';
 //   /staff     order board, staff session
 //   /admin/*   administration
 //   /login     staff sign-in
+//   /setup     first-run setup of a fresh installation
 const router = createBrowserRouter([
   {
     element: (
@@ -35,6 +37,7 @@ const router = createBrowserRouter([
       { path: '/m/:token/cart', element: <CartPage /> },
       { path: '/o/:token', element: <OrderStatusPage /> },
       { path: '/login', element: <LoginPage /> },
+      { path: '/setup', element: <SetupWizard /> },
       { path: '/staff', element: <RequireSession><OrderBoard /></RequireSession> },
       {
         path: '/admin',

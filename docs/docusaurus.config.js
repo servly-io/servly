@@ -15,8 +15,8 @@ const config = {
     faster: true,
   },
 
-  // GitHub Pages: https://servly.github.io/servly/
-  url: 'https://servly.github.io',
+  // GitHub Pages: https://servly-io.github.io/servly/
+  url: 'https://servly-io.github.io',
   // GitHub Pages serves under /servly/; `make docs-serve` sets DOCS_BASE_URL=/
   // so the local dev server answers at http://localhost:<port>/.
   baseUrl: process.env.DOCS_BASE_URL || '/servly/',

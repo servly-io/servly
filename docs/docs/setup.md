@@ -34,28 +34,27 @@ Guests scan a QR code. The code holds an address their phone must be able to ope
 
 Keep guests' Wi-Fi apart from the staff network if you can. See [Security](security.md#transport).
 
-## 3. Create the restaurant and its owner
+## 3. Run the first-run setup
 
-Run this on the server. It asks for the owner's password twice:
+1. Copy the setup token from the server log. It proves that you run the server:
 
-```bash
-servly tenant create --name "Trattoria Roma" --currency EUR --timezone Europe/Berlin --owner-email anna@example.com
-```
+   ```bash
+   podman logs servly 2>&1 | grep setup_token      # container
+   journalctl -u servly | grep setup_token         # systemd
+   ```
+2. Open `http://<server>:8080` on a tablet or PC. A fresh installation opens the setup.
+3. Follow the five steps:
+   * **Welcome:** paste the setup token.
+   * **Your account:** name, email and a password of at least 10 characters. This is the owner's sign-in.
+   * **Restaurant:** name, currency and timezone. The **currency** applies to every price and can change until the first order arrives. The **timezone** decides when order numbers restart, at midnight local time.
+   * **Ordering:** whether guests can add notes and follow their order status.
+   * **Review:** check, then **Create restaurant**.
 
-In a container:
+The setup works only once. After that it is closed, and everyone signs in at `/login`. If the server restarts before you finish, it prints a new token.
 
-```bash
-echo "$OWNER_PASSWORD" | podman exec -i servly servly tenant create --name "Trattoria Roma" \
-  --currency EUR --timezone Europe/Berlin --owner-email anna@example.com --password-stdin
-```
+## 4. Follow the checklist
 
-* The **currency** applies to every price. It can still change in Settings until the first order arrives.
-* The **timezone** decides when order numbers restart, at midnight local time.
-* The password needs at least 10 characters.
-
-## 4. Sign in
-
-Open `http://<server>:8080/login` on a tablet or PC and sign in as the owner. The **Setup** page lists what is still missing.
+After setup, you are signed in as the owner on **Home**. Its checklist shows what is missing and which step comes next. Steps 6 to 9 below are the same steps in more detail. When everything is done, Home shows the open orders instead.
 
 ## 5. Check the settings
 
@@ -98,7 +97,7 @@ Under **Staff**, add each person with an email and a starting password:
 | manager | also edit the menu and tables, cancel orders being prepared, refund |
 | owner | also manage staff and settings |
 
-People who already have a servly sign-in for another restaurant are added without a password; they keep their own. If someone forgets their password, the owner sets a new one here, or the server operator runs `servly user set-password <email>`.
+People who already have a servly sign-in for another restaurant are added without a password; they keep their own. If someone forgets their password, the owner sets a new one here. If the owner cannot sign in, the person who runs the server resets it ([Forgotten password](local-deployment.md#forgotten-password)).
 
 ## 9. Test an order, then go live
 
@@ -125,7 +124,7 @@ In order, it:
 
 1. builds servly (the web app and the server);
 2. wipes and recreates `./.demo` (the database, uploads, `servly.log`);
-3. runs `servly tenant create` for "Trattoria Demo" with a random owner password;
+3. creates "Trattoria Demo" and its owner with a random password, using `servly tenant create` as a developer shortcut for the browser setup;
 4. starts the server on the first free port from 8080, with this machine's network address as the public address;
 5. signs in as the owner and, through the same API the admin screens use, creates a menu (pizzas with sizes and extras, pasta, drinks, one sold-out item), four tables, a pickup counter, a manager and a staff member;
 6. places an order as a guest at Table 1;
@@ -134,7 +133,9 @@ In order, it:
 | Variable | Default | |
 |---|---|---|
 | `DEMO_PORT` | `8080` | first port to try; the next free one is used |
-| `DEMO_HOST` | this machine's LAN address | the address in QR codes; set it if phones cannot reach the default (WSL, VPN) |
+| `DEMO_HOST` | this machine's LAN address | the address in QR codes; set it if phones cannot reach the default (VPN) |
 | `DEMO_DIR` | `./.demo` | data directory, wiped on every run |
 
-The demo listens on all network interfaces so phones on the same network can order. Run it only on networks you trust. Its passwords are printed on the screen.
+The demo listens on all network interfaces so phones on the same network can order. Run it only on networks you trust. Its passwords are printed on the screen. `make run` is reachable the same way, on port 8080.
+
+**On Windows with WSL 2:** WSL's default (NAT) network is reachable from that Windows machine only. `make demo` and `make run` therefore forward the port on Windows and allow it in the Windows firewall, after one administrator prompt, and put the Windows LAN address in the QR codes. The firewall rule covers Private networks. If Windows marks your Wi-Fi as Public, mark it Private in Windows Settings, or run with `LAN_ALLOW_PUBLIC=1`. `make lan-close PORT=8080` removes the forward and the rule.

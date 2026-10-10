@@ -25,6 +25,8 @@ const sidebars = {
         'adr/0002-single-binary-cli',
         'adr/0003-docs-site',
         'adr/0004-tenant-context-and-roles',
+        'adr/0005-first-run-setup',
+        'adr/0006-cli-scope',
       ],
     },
     {

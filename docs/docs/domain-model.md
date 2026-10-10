@@ -55,6 +55,7 @@ erDiagram
 | `payments` | recorded payments: method, status, amount, refunded, reference | yes |
 | `audit_events` | privileged and manual changes: actor, action, entity, JSON data | yes (nullable for platform events) |
 | `idempotency_records` | (tenant, scope, key) → created order and request hash | yes |
+| `installation` | one row (`id = 1`) once the first restaurant exists; closes the first-run setup | no |
 
 ## Invariants
 

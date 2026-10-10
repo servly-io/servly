@@ -55,6 +55,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 	}
 	defer db.Close()
 
+	schemaCurrent := true
 	if cfg.MigrateOnStart {
 		state, err := db.Migrate(ctx)
 		if err != nil {
@@ -66,11 +67,25 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 	} else if state.Pending() {
 		// Serve anyway: /readyz reports unavailable until an operator migrates.
 		log.Warn("schema migrations pending; run `servly migrate up`", "current", state.Current, "latest", state.Latest)
+		schemaCurrent = false
 	}
 
 	stop := make(chan struct{})
 	application := app.New(db, log)
 	application.Files = storage.NewLocal(filepath.Join(cfg.DataDir, "assets"))
+	if schemaCurrent {
+		required, err := application.SetupRequired(ctx)
+		if err != nil {
+			return err
+		}
+		if required {
+			// shortcut: the token lives in this process only, so a restart prints
+			// a new one; persist it if several replicas ever share a fresh database.
+			application.SetupToken = app.NewSetupToken()
+			log.Warn("first-run setup: open servly in a browser and enter this setup token",
+				"setup_token", application.SetupToken, "path", "/setup")
+		}
+	}
 	go application.RunMaintenance(ctx, time.Hour)
 
 	handler := httpapi.NewHandler(httpapi.Deps{

@@ -11,6 +11,7 @@ import type {
   Role,
   Session,
   Settings,
+  SetupInput,
   StaffMember,
 } from './types';
 
@@ -19,6 +20,11 @@ export const auth = {
   login: (email: string, password: string) => api<Session>('POST', '/api/auth/login', { body: { email, password } }),
   logout: () => api<void>('POST', '/api/auth/logout'),
   switchTenant: (tenant_id: string) => api<Session>('PUT', '/api/auth/session/tenant', { body: { tenant_id } }),
+};
+
+export const setupApi = {
+  status: () => api<{ required: boolean }>('GET', '/api/setup'),
+  complete: (body: SetupInput) => api<Session>('POST', '/api/setup', { body }),
 };
 
 export const menuApi = {

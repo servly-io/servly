@@ -20,12 +20,12 @@ export function formatMoney(minor: MinorUnits, currency: Currency, locale?: stri
  */
 export function parseMoney(text: string, currency: Currency): MinorUnits | null {
   const digits = currencyDigits(currency);
-  const m = /^\s*(-?)(\d{1,9})(?:[.,](\d*))?\s*$/.exec(text);
+  const m = /^\s*([-+]?)(\d{1,9})(?:[.,](\d*))?\s*$/.exec(text);
   if (!m) return null;
   const [, sign, whole = '0', frac = ''] = m;
   if (frac.length > digits) return null;
   const minor = Number(whole) * 10 ** digits + Number(frac.padEnd(digits, '0') || '0');
-  return sign ? -minor : minor;
+  return sign === '-' ? -minor : minor;
 }
 
 /** The inverse of parseMoney, for prefilling inputs: 950 EUR -> "9.50". */

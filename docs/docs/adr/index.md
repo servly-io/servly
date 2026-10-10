@@ -11,5 +11,7 @@ Architecture decision records (ADRs) document the decisions MASTER_PLAN.md §18 
 | [0002](0002-single-binary-cli.md) | one `servly` binary; cobra commands, viper configuration | accepted |
 | [0003](0003-docs-site.md) | documentation stays a Docusaurus site under `docs/docs/` | accepted |
 | [0004](0004-tenant-context-and-roles.md) | active tenant in the session; three roles mapped to permissions | accepted |
+| [0005](0005-first-run-setup.md) | first-run setup in the browser, claimed once with a setup token from the server log | accepted |
+| [0006](0006-cli-scope.md) | the CLI operates the installation; restaurant business happens in the web app | accepted |
 
 New ADR: copy the most recent one, take the next number, add a row here and to `docs/sidebars.js`.

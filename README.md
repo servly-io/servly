@@ -13,12 +13,10 @@ servly runs **locally** on one small machine with SQLite, with no cloud account 
 
 ```bash
 make build
-echo "a long password" | dist/servly tenant create --name "Trattoria Roma" --timezone Europe/Berlin \
-  --owner-email anna@example.com --password-stdin --data-dir ./data
-SERVLY_LOG_FORMAT=text dist/servly serve      # http://localhost:8080/login
+SERVLY_LOG_FORMAT=text dist/servly serve      # logs a setup token; open http://localhost:8080
 ```
 
-Then, in the browser: build the menu under **Menu**, add tables under **Tables**, print the QR codes, and watch orders arrive under **Orders**. Step by step: [Setting up a restaurant](docs/docs/setup.md).
+The browser opens the first-run setup. Paste the setup token from the log, then create the owner account and the restaurant. Then build the menu under **Menu**, add tables under **Tables**, print the QR codes, and watch orders arrive under **Orders**. Step by step: [Setting up a restaurant](docs/docs/setup.md).
 
 Or see it all prepared, with sign-ins and guest links printed:
 

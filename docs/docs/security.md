@@ -22,6 +22,7 @@ This page covers how servly authenticates, authorizes and isolates tenants, and 
 * Sessions are server-side. The cookie carries a 256-bit random token, and the database stores only its SHA-256. Cookie flags: `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` when served over HTTPS. Idle expiry is 12 h and absolute expiry is 7 days. Logout deletes the row. Disabling a user or removing a membership takes effect on the next request.
 * **CSRF:** cookie authentication combined with a synchronizer token. State-changing `/api/auth` and `/api/admin` requests must carry `X-CSRF-Token` equal to the session's token. A cross-site form cannot set the header, and `SameSite=Lax` blocks cross-site cookies on `POST`.
 * **Login rate limits:** per IP and per email. Unknown email and wrong password give the same response and take the same time.
+* **First-run setup:** `POST /api/setup` creates the first owner without a session. It needs the setup token that `servly serve` logs at start (80 random bits, compared in constant time, limited per IP). It succeeds only once: the claim inserts the single `installation` row, and a competing claim fails on its primary key. After that, the endpoint answers `409` for good. Anyone who can read the server log can claim a fresh installation, so finish setup before you expose the server. See [ADR 0005](adr/0005-first-run-setup.md).
 
 ## Authorization
 
@@ -59,7 +60,7 @@ Required tests for every tenant-owned endpoint: read, update and delete another 
 ## Logging and secrets
 
 * The request log records method, path, status, size, duration and request id. It never records bodies, cookies, query strings, `Authorization` headers or tokens.
-* Never logged: passwords, session tokens, CSRF tokens, database URLs with credentials, or payment references.
+* Never logged: passwords, session tokens, CSRF tokens, database URLs with credentials, or payment references. The one exception is the first-run setup token. It is logged on purpose, only while the installation is not set up, and it is useless after setup.
 * `servly config view` redacts passwords in connection URLs.
 * Errors that are not `apperr` errors reach the client only as `internal_error` with a request id.
 * Secrets come from the environment or a root-readable file, such as `EnvironmentFile=/etc/servly-io/servly.env` with mode `0600`. They never live in Git.

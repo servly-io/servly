@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { publicApi } from '../api/public';
 import type { Quote } from '../api/types';
+import { Icon } from '../shared/icons';
 import { formatMoney } from '../shared/money';
-import { ErrorBanner, Spinner, useAction, useLoad } from '../shared/ui';
+import { EmptyState, ErrorBanner, Spinner, useAction, useLoad } from '../shared/ui';
 import { rememberOrder, useCart } from './cart';
 
 /** Review the cart with server-confirmed prices, then submit: /m/:token/cart. */
@@ -34,72 +35,110 @@ export function CartPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestKey]);
 
-  if (!menu.data) return menu.error ? <main className="page"><ErrorBanner error={menu.error} onRetry={menu.reload} /></main> : <main className="page"><Spinner /></main>;
+  if (!menu.data) return <main className="guest">{menu.error ? <div className="checkout"><ErrorBanner error={menu.error} onRetry={menu.reload} /></div> : <Spinner />}</main>;
   const cur = menu.data.restaurant.currency;
+  const pickup = menu.data.dining_location.kind === 'pickup';
 
   const place = async () => {
     const order = await submit.run(() => publicApi.place(request, cart.checkoutKey));
     if (order) {
-      rememberOrder(order);
+      rememberOrder(order, token);
       cart.clear();
       navigate(`/o/${order.order_token}`, { replace: true, state: { placed: true } });
     }
   };
 
   const offline = submit.error instanceof ApiError && submit.error.isNetwork;
+  const total = quote ? formatMoney(quote.total_minor, cur) : '';
 
   return (
-    <main className="page page-narrow guest stack">
-      <Link to={`/m/${token}`} className="btn">← Back to the menu</Link>
-      <h1>Your order</h1>
-      <p className="muted">{menu.data.restaurant.name} · {menu.data.dining_location.name}</p>
+    <div className="guest">
+      <header className="topnav-guest">
+        <Link to={`/m/${token}`} className="btn btn-ghost btn-icon btn-round" aria-label="Back to the menu"><Icon name="chevronLeft" /></Link>
+        <div className="row-grow">
+          <h1>Your order</h1>
+          <span className="muted small">{menu.data.restaurant.name}</span>
+        </div>
+      </header>
       {cart.lines.length === 0 ? (
-        <p>Your order is empty.</p>
+        <main className="checkout">
+          <EmptyState icon="bag" title="Your order is empty" action={<Link className="btn btn-primary btn-large btn-round" to={`/m/${token}`}>Browse the menu</Link>}>
+            Add something from the menu and it shows up here.
+          </EmptyState>
+        </main>
       ) : (
-        <>
-          <ul className="list-plain stack-tight">
-            {cart.lines.map((l, i) => (
-              <li key={l.key} className="card row">
-                <div className="row-grow">
-                  <strong>{l.name}</strong>
-                  {l.optionLabels.length > 0 && <div className="muted small">{l.optionLabels.join(', ')}</div>}
-                  {l.notes && <div className="muted small">“{l.notes}”</div>}
-                </div>
-                <span className="stepper" role="group" aria-label={`Quantity of ${l.name}`}>
-                  <button type="button" className="btn btn-icon" aria-label={l.quantity === 1 ? `Remove ${l.name}` : 'One less'}
-                    onClick={() => cart.setQuantity(l.key, l.quantity - 1)}>−</button>
-                  <output>{l.quantity}</output>
-                  <button type="button" className="btn btn-icon" aria-label="One more" disabled={l.quantity >= 99}
-                    onClick={() => cart.setQuantity(l.key, l.quantity + 1)}>+</button>
-                </span>
-                <span className="price">{quote?.items[i] ? formatMoney(quote.items[i]!.line_total_minor, cur) : '…'}</span>
-              </li>
-            ))}
-          </ul>
+        <main className="checkout">
+          <section className="card info-row">
+            <span className="info-icon"><Icon name={pickup ? 'bag' : 'pin'} /></span>
+            <div className="row-grow">
+              <div className="strong">{menu.data.dining_location.name}</div>
+              <div className="muted small">{pickup ? 'Pickup: we tell you when it is ready' : 'Dine-in: we bring it to your table'}</div>
+            </div>
+          </section>
+
+          <section className="card">
+            <ul className="cart-lines">
+              {cart.lines.map((l, i) => (
+                <li key={l.key} className="cart-line">
+                  <span className="stepper stepper-sm" role="group" aria-label={`Quantity of ${l.name}`}>
+                    <button type="button" aria-label={l.quantity === 1 ? `Remove ${l.name}` : 'One less'} onClick={() => cart.setQuantity(l.key, l.quantity - 1)}>
+                      <Icon name={l.quantity === 1 ? 'trash' : 'minus'} size={16} />
+                    </button>
+                    <output>{l.quantity}</output>
+                    <button type="button" aria-label="One more" disabled={l.quantity >= 99} onClick={() => cart.setQuantity(l.key, l.quantity + 1)}>
+                      <Icon name="plus" size={16} />
+                    </button>
+                  </span>
+                  <div className="row-grow">
+                    <div className="strong">{l.name}</div>
+                    {l.optionLabels.length > 0 && <div className="muted small">{l.optionLabels.join(', ')}</div>}
+                    {l.notes && <div className="muted small">“{l.notes}”</div>}
+                  </div>
+                  <span className="cart-line-price">{quote?.items[i] ? formatMoney(quote.items[i]!.line_total_minor, cur) : '…'}</span>
+                </li>
+              ))}
+            </ul>
+            <Link to={`/m/${token}`} className="text-link row small" style={{ marginTop: 12, gap: 6 }}><Icon name="plus" size={16} />Add more items</Link>
+          </section>
+
           {menu.data.restaurant.order_notes_enabled && (
-            <label className="field">
-              <span className="field-label">Note for the whole order</span>
-              <textarea rows={2} maxLength={500} value={cart.notes} onChange={(e) => cart.setNotes(e.target.value)} />
+            <label className="card field">
+              <span className="field-label">Note for the restaurant</span>
+              <textarea rows={2} maxLength={500} placeholder="Allergies, timing, anything we should know" value={cart.notes} onChange={(e) => cart.setNotes(e.target.value)} />
             </label>
           )}
-          <ErrorBanner error={quoteError} />
-          <p className="total row">
-            <span className="row-grow">Total</span>
-            <strong>{quote ? formatMoney(quote.total_minor, cur) : <Spinner label="Checking prices…" />}</strong>
-          </p>
+
+          <section className="card stack-tight">
+            <ErrorBanner error={quoteError} />
+            {quote && quote.subtotal_minor !== quote.total_minor && (
+              <div className="totals-sub"><span>Subtotal</span><span className="num">{formatMoney(quote.subtotal_minor, cur)}</span></div>
+            )}
+            <div className="totals" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+              <span>Total</span>
+              <span className="num">{quote ? total : <Spinner inline label="Checking prices…" />}</span>
+            </div>
+            <div className="info-row muted small" style={{ gap: 10 }}>
+              <Icon name="wallet" size={18} />
+              <span>You pay {pickup ? 'when you collect' : 'at the table'}: cash or card. Nothing is charged now.</span>
+            </div>
+          </section>
+
           {offline ? (
-            <div className="banner banner-error" role="alert">
-              <span>No connection. Your order was not confirmed yet. Trying again is safe: it cannot be placed twice.</span>
+            <div className="banner banner-warn" role="alert">
+              <Icon name="alert" />
+              <span>No connection. Your order is not confirmed yet. Trying again is safe: it cannot be placed twice.</span>
             </div>
           ) : (
             <ErrorBanner error={submit.error} />
           )}
-          <button type="button" className="btn btn-primary btn-large btn-block" disabled={!quote || submit.busy} onClick={() => void place()}>
-            {submit.busy ? 'Sending…' : offline ? 'Try again' : `Place order · ${quote ? formatMoney(quote.total_minor, cur) : ''}`}
-          </button>
-          <p className="muted small">You pay at the table or the counter. No account needed.</p>
-        </>
+          <div className="checkout-cta">
+            <button type="button" className="btn btn-primary btn-large btn-block" disabled={!quote || submit.busy} onClick={() => void place()}>
+              <span>{submit.busy ? 'Sending…' : offline ? 'Try again' : 'Place order'}</span>
+              <span className="num">{total}</span>
+            </button>
+          </div>
+        </main>
       )}
-    </main>
+    </div>
   );
 }

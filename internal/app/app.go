@@ -20,6 +20,9 @@ type App struct {
 	Files *storage.Local
 	// Events receives order changes after commit, for the staff SSE stream.
 	Events *notifications.Broker
+	// SetupToken is the secret the first-run setup asks for (NewSetupToken);
+	// empty keeps the setup in the browser closed.
+	SetupToken string
 }
 
 func New(db *database.DB, log *slog.Logger) *App {

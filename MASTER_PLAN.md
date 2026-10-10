@@ -32,6 +32,7 @@ The product must be designed for agentic implementation: clear boundaries, expli
 8. Avoid distributed systems unless a demonstrated requirement justifies them.
 9. Prefer boring, maintained technology with a small operational footprint.
 10. Every implemented feature must include tests and documentation appropriate to its risk.
+11. Restaurant business happens in the web application; the command line is for operating the installation (§4.5).
 
 ---
 
@@ -41,6 +42,7 @@ The product must be designed for agentic implementation: clear boundaries, expli
 
 #### Restaurant administration
 
+* Set up a fresh installation in the browser: claim it, create the owner account and the first restaurant.
 * Configure restaurant name, currency, timezone, and basic settings.
 * Create, edit, reorder, enable, and disable menu categories.
 * Create, edit, duplicate, and disable menu items.
@@ -250,6 +252,26 @@ Do not place business logic directly in HTTP handlers.
 Consumes documented API contracts. It must not calculate authoritative totals, determine authorization, or independently enforce order state transitions.
 
 The UI can calculate provisional cart totals for convenience, but the server must recompute and validate all prices before accepting an order.
+
+### 4.5 Command-line interface
+
+The `servly` command line serves the operator of an installation, never the restaurant's business.
+
+The CLI may:
+
+* Run the server (`serve`).
+* Manage the schema (`migrate`).
+* Show and check configuration (`config`, `version`).
+* Back up and restore data.
+* Recover access, such as resetting a password when nobody can sign in (`user set-password`).
+* Provision and suspend tenants on a managed platform (`tenant`). This is platform administration, not restaurant setup.
+
+The CLI must not:
+
+* Be a required step for a restaurant owner. A fresh installation is set up in the browser (§12, first-run setup).
+* Configure menus, tables, staff, settings, orders or payments. These belong to the web application and its API.
+
+Business rules stay in the application layer for both interfaces. A CLI command calls the same use cases as the API and adds no business logic of its own.
 
 ---
 
@@ -525,6 +547,8 @@ Initial endpoint contract:
 
 ### Access and health
 
+* `GET /api/setup`
+* `POST /api/setup`
 * `POST /api/auth/login`
 * `POST /api/auth/logout`
 * `GET /api/auth/session`
@@ -578,7 +602,8 @@ Use a single responsive React/TypeScript application with distinct customer, sta
 
 ### Administration interface
 
-* Guided setup.
+* A first-run setup wizard for a fresh installation: owner account, restaurant, ordering options, review.
+* A launch checklist on the admin home page until the restaurant is ready: menu, tables and QR codes, staff, test order.
 * Straightforward category and item editing.
 * Simple price and availability controls.
 * Product duplication.
@@ -630,6 +655,15 @@ Security must be considered in every implementation phase.
 * Implement logout and session expiration.
 * Protect state-changing requests against CSRF when cookie authentication is used.
 * Rate-limit authentication attempts.
+
+### First-run setup
+
+* The browser setup is available only while the installation is not set up.
+* Claiming requires a one-time setup token that only the operator can read, such as from the server log.
+* The claim is atomic: exactly one claim succeeds, also under concurrent requests.
+* The installation state is stored in the database. It is not inferred from whether users exist.
+* After setup, the setup endpoint is closed permanently. Recovery uses authenticated settings or a deliberate operator procedure.
+* Never ship default administrator passwords.
 
 ### Authorization
 
@@ -992,7 +1026,7 @@ Every phase must add automated tests at the appropriate level.
 
 ### End-to-end tests
 
-1. Create a tenant and owner.
+1. Complete the first-run setup in the browser: owner and restaurant.
 2. Configure a menu.
 3. Create a table and public QR token.
 4. Submit a customer order.
@@ -1131,7 +1165,7 @@ The coordinating agent is responsible for resolving interface conflicts, reviewi
 
 ## 21. Final acceptance objective
 
-The MVP succeeds when a restaurant owner can install the application, configure a menu, print a QR code, accept customer orders, process them from a tablet or PC, and retain a reliable history of orders and payments.
+The MVP succeeds when a restaurant owner can install the application, set it up in the browser without a command line, configure a menu, print a QR code, accept customer orders, process them from a tablet or PC, and retain a reliable history of orders and payments.
 
 The same codebase must be capable of running in a managed cloud environment with multiple isolated restaurant tenants, without changing the fundamental ordering workflow.
 

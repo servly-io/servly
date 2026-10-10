@@ -90,6 +90,8 @@ func NewHandler(d Deps) http.Handler {
 		if d.App == nil {
 			return
 		}
+		r.Get("/setup", s.setupStatus)
+		r.Post("/setup", s.completeSetup)
 		r.Route("/auth", s.authRoutes)
 		r.Route("/public", s.publicRoutes)
 		r.Route("/admin", func(r chi.Router) {

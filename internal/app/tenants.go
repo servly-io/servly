@@ -38,7 +38,14 @@ type CreateTenantResult struct {
 
 // CreateTenant provisions a tenant with one location and an owner. An
 // existing user with the owner's email becomes the owner of the new tenant.
+// The installation counts as set up from then on (see CompleteSetup).
 func (a *App) CreateTenant(ctx context.Context, in CreateTenantInput) (*CreateTenantResult, error) {
+	return a.createTenant(ctx, in, false)
+}
+
+// createTenant is CreateTenant; with claim it is also the first-run claim of
+// the installation, and fails with ErrSetupComplete if that already happened.
+func (a *App) createTenant(ctx context.Context, in CreateTenantInput, claim bool) (*CreateTenantResult, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return nil, tenant.ErrNameRequired
@@ -72,6 +79,11 @@ func (a *App) CreateTenant(ctx context.Context, in CreateTenantInput) (*CreateTe
 	}
 
 	err = a.DB.InTx(ctx, func(tx *sql.Tx) error {
+		// First, so a competing claim waits on (PostgreSQL) or is serialized
+		// behind (SQLite) the installation row before anything else is written.
+		if err := markInstalled(ctx, tx, now, claim); err != nil {
+			return err
+		}
 		st := tenantsql.New(tx)
 		if err := st.CreateTenant(ctx, &res.Tenant); err != nil {
 			return err
@@ -81,6 +93,8 @@ func (a *App) CreateTenant(ctx context.Context, in CreateTenantInput) (*CreateTe
 		}
 		owner, err := st.GetUserByEmail(ctx, email)
 		switch {
+		case err == nil && claim:
+			return tenant.ErrEmailTaken
 		case err == nil:
 			res.OwnerExists = true
 		case errors.Is(err, tenant.ErrNotFound):

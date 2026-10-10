@@ -82,5 +82,7 @@ function safeParse(text: string): unknown {
 
 /** A fresh idempotency key for one logical submission; reuse it on retries. */
 export function newIdempotencyKey(): string {
-  return crypto.randomUUID();
+  // getRandomValues, not randomUUID: randomUUID is missing on plain-HTTP LAN origins.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }

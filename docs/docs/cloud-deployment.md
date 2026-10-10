@@ -54,7 +54,7 @@ flowchart LR
 * **Monitoring:** `/healthz` (liveness), `/readyz` (readiness), JSON logs with `request_id`, and PostgreSQL metrics.
 * **Resource limits:** set memory and CPU limits on the container. Public endpoints are rate-limited in the process, and the proxy should add a coarse per-IP limit.
 * **Operational access:** production database access is limited to named operators. Platform admin actions on tenant data are audited (`audit_events`).
-* **Tenant lifecycle:** provisioning and suspension are platform-admin actions. Suspension blocks staff sign-in and public ordering and keeps the data. Automated provisioning and billing are out of scope until the operational model is proven.
+* **Tenant lifecycle:** provisioning and suspension are platform-admin actions. Today, `servly tenant create` provisions a tenant and its owner. The owner then works only in the browser ([ADR 0006](adr/0006-cli-scope.md)). Suspension blocks staff sign-in and public ordering and keeps the data. Automated provisioning and billing are out of scope until the operational model is proven.
 
 ## Tenant-specific backup and recovery
 

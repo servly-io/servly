@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { settingsApi } from '../api/admin';
 import type { Settings } from '../api/types';
 import { useSession } from '../shared/session';
-import { ErrorBanner, Field, Toggle, useAction } from '../shared/ui';
+import { Icon } from '../shared/icons';
+import { CurrencySelect, TimezoneSelect } from '../shared/inputs';
+import { ErrorBanner, Field, PageHeader, Toggle, useAction } from '../shared/ui';
 import { useAdmin } from './AdminLayout';
-
-const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
 
 export function SettingsPage() {
   const { settings, reloadSettings } = useAdmin();
@@ -15,6 +15,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const act = useAction();
   useEffect(() => setForm(settings), [settings]);
+  const dirty = JSON.stringify(form) !== JSON.stringify(settings);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,26 +27,38 @@ export function SettingsPage() {
   };
 
   return (
-    <form onSubmit={save} className="stack page-narrow">
-      <h1>Settings</h1>
+    <form onSubmit={save} className="stack" style={{ maxWidth: 720 }}>
+      <PageHeader title="Settings" subtitle={canEdit ? undefined : 'Only owners change settings.'} />
       <fieldset disabled={!canEdit} className="stack">
-        <Field label="Restaurant name"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-        <Field label="Currency" hint="Three-letter code such as EUR. It cannot change after the first order.">
-          <input required maxLength={3} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} />
-        </Field>
-        <Field label="Timezone" hint="Order numbers restart every day at midnight in this timezone.">
-          <input list="timezones" required value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} />
-          <datalist id="timezones">{zones.map((z) => <option key={z} value={z} />)}</datalist>
-        </Field>
-        <Toggle label="Guests can add notes to orders" checked={form.order_notes_enabled} onChange={(v) => setForm({ ...form, order_notes_enabled: v })} />
-        <Toggle label="Guests can follow their order status" checked={form.public_status_enabled} onChange={(v) => setForm({ ...form, public_status_enabled: v })} />
+        <section className="card stack">
+          <div>
+            <h2>Restaurant</h2>
+            <p className="muted small card-sub">Guests see the name on the menu.</p>
+          </div>
+          <Field label="Restaurant name"><input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <div className="grid-2">
+            <Field label="Currency" hint="Every price uses it. It cannot change after the first order.">
+              <CurrencySelect value={form.currency} onChange={(v) => setForm({ ...form, currency: v })} />
+            </Field>
+            <Field label="Timezone" hint="Order numbers restart every day at midnight in this timezone.">
+              <TimezoneSelect value={form.timezone} onChange={(v) => setForm({ ...form, timezone: v })} />
+            </Field>
+          </div>
+        </section>
+        <section className="card stack-tight">
+          <h2>Guest ordering</h2>
+          <Toggle label="Notes on orders" description="Guests can add a note for the kitchen, such as “no onions”." checked={form.order_notes_enabled} onChange={(v) => setForm({ ...form, order_notes_enabled: v })} />
+          <Toggle label="Order status page" description="After ordering, guests can follow their order on their phone." checked={form.public_status_enabled} onChange={(v) => setForm({ ...form, public_status_enabled: v })} />
+        </section>
       </fieldset>
       <ErrorBanner error={act.error} />
-      {saved && <p role="status" className="banner banner-ok">Saved.</p>}
-      {canEdit ? (
-        <button type="submit" className="btn btn-primary btn-large" disabled={act.busy}>Save</button>
-      ) : (
-        <p className="muted">Only owners change settings.</p>
+      {saved && !dirty && <p role="status" className="banner banner-ok"><Icon name="checkCircle" /><span>Saved.</span></p>}
+      {canEdit && dirty && (
+        <div className="savebar" role="region" aria-label="Save changes">
+          <span className="savebar-text"><Icon name="alert" size={18} />Unsaved changes</span>
+          <button type="button" className="btn" onClick={() => setForm(settings)}>Discard</button>
+          <button type="submit" className="btn btn-accent" disabled={act.busy}>{act.busy ? 'Saving…' : 'Save'}</button>
+        </div>
       )}
     </form>
   );

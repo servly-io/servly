@@ -3,7 +3,9 @@ import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-route
 import { menuApi } from '../api/admin';
 import type { MenuItem, MenuItemInput } from '../api/types';
 import { formatMoney, minorToInput, parseMoney } from '../shared/money';
-import { ErrorBanner, Field, Spinner, Toggle, useAction, useLoad } from '../shared/ui';
+import { Icon } from '../shared/icons';
+import { CountInput, MoneyInput } from '../shared/inputs';
+import { ErrorBanner, Field, PageHeader, Spinner, Toggle, useAction, useLoad } from '../shared/ui';
 import { useAdmin } from './AdminLayout';
 
 interface OptionDraft { id?: string; name: string; price: string; is_available: boolean }
@@ -38,6 +40,11 @@ function toInput(d: Draft, currency: string): MenuItemInput | string {
   if (price === null || price < 0) return 'Enter the price as a number, such as 9.50.';
   const groups: NonNullable<MenuItemInput['option_groups']> = [];
   for (const g of d.groups) {
+    const label = g.name.trim() || 'An option group';
+    if (g.options.length === 0) return `${label} has no options. Add one, or remove the group.`;
+    if (g.max_select < 1) return `${label}: guests must be able to choose at least 1 option (Max).`;
+    if (g.min_select > g.max_select) return `${label}: Min (${g.min_select}) cannot be more than Max (${g.max_select}).`;
+    if (g.min_select > g.options.length) return `${label}: guests must choose ${g.min_select}, but there are only ${g.options.length} options.`;
     const options = [];
     for (const o of g.options) {
       const delta = parseMoney(o.price || '0', currency);
@@ -143,84 +150,148 @@ export function ItemEditor() {
 
   const unit = parseMoney(draft.price, cur);
 
+  const back = `/admin/menu?category=${draft.category_id}`;
+  const rule = (g: GroupDraft) =>
+    g.min_select === g.max_select ? `Guests choose exactly ${g.min_select}` : g.min_select > 0 ? `Guests choose ${g.min_select} to ${g.max_select}` : `Guests choose up to ${g.max_select}`;
+
   return (
-    <form onSubmit={save} className="stack editor">
-      <h1>{isNew ? 'New item' : `Edit ${item.data?.name ?? ''}`}</h1>
-      <div className="grid-2">
-        <Field label="Name">
-          <input value={draft.name} maxLength={120} required onChange={(e) => set({ name: e.target.value })} />
-        </Field>
-        <Field label={`Price (${cur})`} hint={unit !== null && unit >= 0 ? formatMoney(unit, cur) : 'for example 9.50'}>
-          <input inputMode="decimal" value={draft.price} required onChange={(e) => set({ price: e.target.value })} />
-        </Field>
-      </div>
-      <Field label="Description">
-        <textarea rows={3} maxLength={1000} value={draft.description} onChange={(e) => set({ description: e.target.value })} />
-      </Field>
-      <div className="grid-2">
-        <Field label="Category">
-          <select value={draft.category_id} onChange={(e) => set({ category_id: e.target.value })}>
-            {cats.data.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
-        <div className="stack-tight">
-          <Toggle label="Shown on the menu" checked={draft.is_enabled} onChange={(v) => set({ is_enabled: v })} />
-          <Toggle label="Available (untick when sold out)" checked={draft.is_available} onChange={(v) => set({ is_available: v })} />
-        </div>
-      </div>
-
-      <fieldset className="card">
-        <legend>Photo</legend>
-        {draft.image_preview && <img src={draft.image_preview} alt="" className="preview" />}
-        <div className="row">
-          <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload photo" onChange={(e) => void upload(e.target.files?.[0])} />
-          {draft.image_asset_id && <button type="button" className="btn" onClick={() => set({ image_asset_id: null, image_preview: null })}>Remove photo</button>}
-        </div>
-      </fieldset>
-
-      <fieldset className="card stack">
-        <legend>Options and extras</legend>
-        {draft.groups.length === 0 && <p className="muted small">Add a group such as "Size" (choose exactly 1) or "Extras" (choose up to 3).</p>}
-        {draft.groups.map((g, gi) => (
-          <div key={g.id ?? `new-${gi}`} className="group stack-tight">
-            <div className="row">
-              <Field label="Group"><input value={g.name} required onChange={(e) => setGroup(gi, { name: e.target.value })} /></Field>
-              <Field label="Choose at least"><input type="number" min={0} value={g.min_select} onChange={(e) => setGroup(gi, { min_select: Number(e.target.value) })} /></Field>
-              <Field label="at most"><input type="number" min={1} value={g.max_select} onChange={(e) => setGroup(gi, { max_select: Number(e.target.value) })} /></Field>
-              <button type="button" className="btn" onClick={() => set({ groups: draft.groups.filter((_, i) => i !== gi) })}>Remove group</button>
-            </div>
-            {g.options.map((o, oi) => (
-              <div key={o.id ?? `new-${oi}`} className="row option-row">
-                <input aria-label="Option name" placeholder="Option" value={o.name} required onChange={(e) => setOption(gi, oi, { name: e.target.value })} />
-                <input aria-label={`Price change (${cur})`} placeholder="+0.00" inputMode="decimal" className="input-short" value={o.price}
-                  onChange={(e) => setOption(gi, oi, { price: e.target.value })} />
-                <Toggle label="Available" checked={o.is_available} onChange={(v) => setOption(gi, oi, { is_available: v })} />
-                <button type="button" className="btn btn-icon" aria-label={`Remove option ${o.name}`}
-                  onClick={() => setGroup(gi, { options: g.options.filter((_, i) => i !== oi) })}>×</button>
-              </div>
-            ))}
-            <button type="button" className="btn btn-small" onClick={() => setGroup(gi, { options: [...g.options, { name: '', price: '', is_available: true }] })}>
-              Add option
-            </button>
-          </div>
-        ))}
-        <button type="button" className="btn" onClick={() => set({ groups: [...draft.groups, { name: '', min_select: 0, max_select: 1, options: [{ name: '', price: '', is_available: true }] }] })}>
-          Add option group
-        </button>
-      </fieldset>
-
-      <ErrorBanner error={act.error} />
-      <div className="row sticky-actions">
-        <button type="submit" className="btn btn-primary btn-large" disabled={act.busy}>{act.busy ? 'Saving…' : 'Save'}</button>
-        <button type="button" className="btn btn-large" onClick={() => navigate(`/admin/menu?category=${draft.category_id}`)}>Cancel</button>
-        {!isNew && (
+    <form onSubmit={save} className="stack">
+      <PageHeader
+        back={{ to: back, label: 'Menu' }}
+        title={isNew ? 'New item' : item.data?.name ?? ''}
+        subtitle={!isNew && (
+          <span className="row" style={{ gap: 6 }}>
+            <span className={`badge ${draft.is_available ? 'badge-ok' : 'badge-warn'}`}>{draft.is_available ? 'Available' : 'Sold out'}</span>
+            {!draft.is_enabled && <span className="badge">Hidden</span>}
+          </span>
+        )}
+        actions={!isNew && (
           <>
-            <button type="button" className="btn" disabled={act.busy || dirty} title={dirty ? 'Save first' : undefined} onClick={() => void duplicate()}>Duplicate</button>
-            <button type="button" className="btn btn-danger" disabled={act.busy} onClick={() => void remove()}>Delete</button>
+            <button type="button" className="btn" disabled={act.busy || dirty} title={dirty ? 'Save first' : undefined} onClick={() => void duplicate()}>
+              <Icon name="copy" size={18} />Duplicate
+            </button>
+            <button type="button" className="btn btn-danger" disabled={act.busy} onClick={() => void remove()}>
+              <Icon name="trash" size={18} />Delete
+            </button>
           </>
         )}
-        {dirty && <span className="muted small">Unsaved changes</span>}
+      />
+
+      <div className="editor-grid">
+        <div className="stack">
+          <section className="card stack">
+            <h2>Details</h2>
+            <Field label="Name">
+              <input value={draft.name} maxLength={120} required placeholder="Margherita" onChange={(e) => set({ name: e.target.value })} />
+            </Field>
+            <Field label="Description" hint="Guests read this on the menu. Mention what makes it special.">
+              <textarea rows={3} maxLength={1000} value={draft.description} placeholder="Tomato, mozzarella, fresh basil" onChange={(e) => set({ description: e.target.value })} />
+            </Field>
+            <div className="grid-2">
+              <Field label="Price" hint={unit !== null ? `Guests see ${formatMoney(unit, cur)}` : 'For example 9.50'}
+                error={draft.price.trim() !== '' && unit === null ? 'Enter a price such as 9.50' : undefined}>
+                <span className="input-affix">
+                  <span>{cur}</span>
+                  <MoneyInput currency={cur} value={draft.price} required placeholder="0.00" onChange={(v) => set({ price: v })} />
+                </span>
+              </Field>
+              <Field label="Category">
+                <select value={draft.category_id} onChange={(e) => set({ category_id: e.target.value })}>
+                  {cats.data.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </Field>
+            </div>
+          </section>
+
+          <section className="card stack">
+            <div>
+              <h2>Options and extras</h2>
+              <p className="muted small card-sub">Sizes, sides or toppings. Each group sets how many options guests may pick.</p>
+            </div>
+            {draft.groups.map((g, gi) => (
+              <div key={g.id ?? `new-${gi}`} className="group">
+                <div className="group-head">
+                  <Field label="Group name"><input value={g.name} required maxLength={120} placeholder="Size" onChange={(e) => setGroup(gi, { name: e.target.value })} /></Field>
+                  <Field label="Min"><CountInput min={0} max={100} value={g.min_select} onChange={(v) => setGroup(gi, { min_select: v })} /></Field>
+                  <Field label="Max"><CountInput min={1} max={100} value={g.max_select} onChange={(v) => setGroup(gi, { max_select: v })} /></Field>
+                  <button type="button" className="btn btn-ghost btn-icon" aria-label={`Remove group ${g.name}`} onClick={() => set({ groups: draft.groups.filter((_, i) => i !== gi) })}>
+                    <Icon name="trash" size={18} />
+                  </button>
+                </div>
+                {g.min_select > g.max_select ? (
+                  <p className="field-error">Min cannot be more than Max.</p>
+                ) : g.min_select > g.options.length ? (
+                  <p className="field-error">Guests must choose {g.min_select}, but there {g.options.length === 1 ? 'is only 1 option' : `are only ${g.options.length} options`}.</p>
+                ) : (
+                  <p className="muted small">{rule(g)}{g.min_select > 0 ? ' (required)' : ' (optional)'}.</p>
+                )}
+                {g.options.map((o, oi) => (
+                  <div key={o.id ?? `new-${oi}`} className="option-row">
+                    <input aria-label="Option name" placeholder="Option, such as Large" value={o.name} required maxLength={120} onChange={(e) => setOption(gi, oi, { name: e.target.value })} />
+                    <span className="input-affix input-affix-wide">
+                      <span>+{cur}</span>
+                      <MoneyInput signed currency={cur} aria-label={`Price change (${cur}), negative for a discount`} placeholder="0.00" value={o.price}
+                        onChange={(v) => setOption(gi, oi, { price: v })} />
+                    </span>
+                    <Toggle label={`${o.name || 'Option'} available`} hideLabel checked={o.is_available} onChange={(v) => setOption(gi, oi, { is_available: v })} />
+                    <button type="button" className="btn btn-ghost btn-icon btn-small" aria-label={`Remove option ${o.name}`}
+                      onClick={() => setGroup(gi, { options: g.options.filter((_, i) => i !== oi) })}><Icon name="x" size={18} /></button>
+                  </div>
+                ))}
+                <div>
+                  <button type="button" className="btn btn-small btn-ghost" onClick={() => setGroup(gi, { options: [...g.options, { name: '', price: '', is_available: true }] })}>
+                    <Icon name="plus" size={16} />Add option
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div>
+              <button type="button" className="btn" onClick={() => set({ groups: [...draft.groups, { name: '', min_select: 0, max_select: 1, options: [{ name: '', price: '', is_available: true }] }] })}>
+                <Icon name="plus" size={18} />Add option group
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div className="stack">
+          <section className="card stack-tight">
+            <h2>Status</h2>
+            <Toggle label="Shown on the menu" description="Hidden items stay here but guests do not see them." checked={draft.is_enabled} onChange={(v) => set({ is_enabled: v })} />
+            <Toggle label="Available" description="Turn off when it sells out. Guests see it as sold out." checked={draft.is_available} onChange={(v) => set({ is_available: v })} />
+          </section>
+          <section className="card stack-tight">
+            <h2>Photo</h2>
+            {draft.image_preview ? (
+              <>
+                <img src={draft.image_preview} alt="" className="photo-preview" />
+                <div className="row">
+                  <label className="btn btn-small">
+                    Replace
+                    <input type="file" className="visually-hidden" accept="image/jpeg,image/png,image/webp" onChange={(e) => void upload(e.target.files?.[0])} />
+                  </label>
+                  <button type="button" className="btn btn-small btn-ghost" onClick={() => set({ image_asset_id: null, image_preview: null })}>Remove</button>
+                </div>
+              </>
+            ) : (
+              <label className="photo-drop">
+                <Icon name="image" size={28} />
+                <span className="strong" style={{ color: 'var(--fg)' }}>Add a photo</span>
+                <span className="small">JPEG, PNG or WebP, up to 5 MB</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload photo" onChange={(e) => void upload(e.target.files?.[0])} />
+              </label>
+            )}
+          </section>
+        </div>
       </div>
+
+      <ErrorBanner error={act.error} />
+      {(dirty || isNew) && (
+        <div className="savebar" role="region" aria-label="Save changes">
+          <span className="savebar-text"><Icon name="alert" size={18} />{isNew ? 'New item, not saved yet' : 'Unsaved changes'}</span>
+          <button type="button" className="btn" onClick={() => navigate(back)}>Discard</button>
+          <button type="submit" className="btn btn-accent" disabled={act.busy}>{act.busy ? 'Saving…' : 'Save'}</button>
+        </div>
+      )}
     </form>
   );
 }

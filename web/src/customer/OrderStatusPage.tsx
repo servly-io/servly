@@ -1,22 +1,24 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { publicApi } from '../api/public';
 import type { OrderStatus, PublicOrder } from '../api/types';
 import { formatMoney } from '../shared/money';
-import { ErrorBanner, Spinner } from '../shared/ui';
-import { recallOrder } from './cart';
+import { Icon, type IconName } from '../shared/icons';
+import { EmptyState, ErrorBanner, Spinner } from '../shared/ui';
+import { recallMenuToken, recallOrder } from './cart';
 
-const statusText: Record<OrderStatus, string> = {
-  new: 'Received: waiting for the staff to accept it.',
-  accepted: 'Accepted.',
-  preparing: 'Being prepared.',
-  ready: 'Ready!',
-  completed: 'Completed. Enjoy!',
-  cancelled: 'Cancelled. Please ask the staff.',
+const statusView: Record<OrderStatus, { title: string; text: string; icon: IconName }> = {
+  new: { title: 'Order sent', text: 'Waiting for the restaurant to accept it.', icon: 'clock' },
+  accepted: { title: 'Order accepted', text: 'The kitchen has your order and starts soon.', icon: 'check' },
+  preparing: { title: 'Being prepared', text: 'Your food is being made right now.', icon: 'flame' },
+  ready: { title: 'Ready!', text: 'Your order is ready.', icon: 'bag' },
+  completed: { title: 'Enjoy your meal', text: 'This order is complete. Thank you!', icon: 'checkCircle' },
+  cancelled: { title: 'Order cancelled', text: 'Please ask the staff.', icon: 'xCircle' },
 };
 
 const steps: OrderStatus[] = ['new', 'accepted', 'preparing', 'ready', 'completed'];
+const stepLabels = ['Sent', 'Accepted', 'Preparing', 'Ready'];
 const POLL_MS = 15_000;
 
 /** Confirmation and live status of a guest's order: /o/:token. */
@@ -26,6 +28,7 @@ export function OrderStatusPage() {
   const [order, setOrder] = useState<PublicOrder | null>(() => recallOrder(token));
   const [statusHidden, setStatusHidden] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [menuToken] = useState(() => recallMenuToken(token));
 
   useEffect(() => {
     let live = true;
@@ -55,38 +58,77 @@ export function OrderStatusPage() {
   }, [token]);
 
   if (!order) {
-    if (statusHidden) return <main className="page page-narrow"><h1>Order not found</h1><p>Please ask the staff.</p></main>;
-    return <main className="page"><Spinner /></main>;
+    if (statusHidden) {
+      return (
+        <main className="auth">
+          <div className="auth-card"><EmptyState icon="receipt" title="Order not found">Please ask the staff.</EmptyState></div>
+        </main>
+      );
+    }
+    return <main className="guest"><Spinner /></main>;
   }
   const current = steps.indexOf(order.status);
+  const view = statusView[order.status];
+  const live = !statusHidden && order.status !== 'completed' && order.status !== 'cancelled';
+  const pickup = order.mode === 'pickup';
+  const readyText = pickup ? 'Collect it at the counter.' : 'It is on its way to your table.';
 
   return (
-    <main className="page page-narrow guest stack">
-      {placed && <p className="banner banner-ok" role="status">Thank you! Your order was sent.</p>}
-      <h1>Order {order.number}</h1>
-      <p className="muted">{order.dining_location} · {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-      {statusHidden ? (
-        <p>Show this number to the staff if you have questions.</p>
-      ) : (
-        <>
-          <p className="status-text" aria-live="polite">{statusText[order.status]}</p>
-          {order.status !== 'cancelled' && (
-            <ol className="progress" aria-label="Progress">
-              {steps.slice(0, 4).map((s, i) => <li key={s} className={i <= current ? 'reached' : ''}>{s}</li>)}
+    <div className="guest">
+      <main className="checkout">
+        <section className={`track-hero st-${statusHidden ? 'completed' : order.status === 'new' ? 'new' : order.status === 'cancelled' ? 'cancelled' : order.status === 'preparing' ? 'preparing' : 'ready'}`} aria-live="polite">
+          <span className={`track-icon${live ? ' live' : ''}`}><Icon name={statusHidden ? 'checkCircle' : view.icon} size={36} /></span>
+          <h1>{statusHidden ? 'Thank you!' : view.title}</h1>
+          <p className="muted">{statusHidden ? 'Your order was sent. Show this number to the staff if you have questions.' : order.status === 'ready' ? `${view.text} ${readyText}` : view.text}</p>
+          <span className="track-number"><span className="muted small">Order</span><strong>{order.number}</strong></span>
+        </section>
+
+        {placed && !statusHidden && order.status === 'new' && (
+          <p className="banner banner-ok" role="status"><Icon name="checkCircle" /><span>Thank you! Your order was sent to the kitchen.</span></p>
+        )}
+
+        {!statusHidden && order.status !== 'cancelled' && (
+          <section className="card stack-tight">
+            <ol className="track" aria-label="Progress">
+              {stepLabels.map((label, i) => (
+                <li key={label} className={i < current || current >= 4 ? 'reached' : i === current ? 'reached current' : ''}>{label}</li>
+              ))}
             </ol>
-          )}
-        </>
-      )}
-      <ErrorBanner error={error} />
-      <ul className="list-plain stack-tight">
-        {order.items.map((l, i) => (
-          <li key={i} className="row">
-            <span className="row-grow">{l.quantity} × {l.name}{l.options.length > 0 && <span className="muted small"> ({l.options.map((o) => o.option_name).join(', ')})</span>}</span>
-            <span>{formatMoney(l.line_total_minor, order.currency)}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="total row"><span className="row-grow">Total</span><strong>{formatMoney(order.total_minor, order.currency)}</strong></p>
-    </main>
+            {live && <p className="muted tiny">This page updates by itself.</p>}
+          </section>
+        )}
+        <ErrorBanner error={error} />
+
+        <section className="card stack-tight">
+          <div className="row">
+            <h2 className="row-grow">Your order</h2>
+            <span className="muted small">{order.dining_location} · {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <ul className="lines">
+            {order.items.map((l, i) => (
+              <li key={i}>
+                <span className="qty">{l.quantity}×</span>
+                <span className="row-grow">
+                  {l.name}
+                  {l.options.length > 0 && <span className="ticket-opts">{l.options.map((o) => o.option_name).join(', ')}</span>}
+                </span>
+                <span className="num">{formatMoney(l.line_total_minor, order.currency)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="totals"><span>Total</span><span className="num">{formatMoney(order.total_minor, order.currency)}</span></div>
+          <div className="info-row muted small" style={{ gap: 10 }}>
+            <Icon name="wallet" size={18} />
+            <span>{order.payment_status === 'paid' ? 'Paid. Thank you!' : `Pay ${pickup ? 'when you collect' : 'at the table'}.`}</span>
+          </div>
+        </section>
+
+        {menuToken && (
+          <Link className="btn btn-large btn-block btn-round" to={`/m/${menuToken}`}>
+            <Icon name="plus" size={18} />Order more
+          </Link>
+        )}
+      </main>
+    </div>
   );
 }

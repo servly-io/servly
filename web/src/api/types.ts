@@ -52,6 +52,17 @@ export interface Session {
   expires_at: string;
 }
 
+/** POST /api/setup: the first-run claim of a fresh installation. */
+export interface SetupInput {
+  setup_token: string;
+  restaurant_name: string;
+  currency: Currency;
+  timezone: string;
+  owner_name: string;
+  owner_email: string;
+  owner_password: string;
+}
+
 export interface Items<T> {
   items: T[];
 }

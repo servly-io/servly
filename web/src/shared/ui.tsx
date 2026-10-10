@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { ApiError } from '../api/client';
+import { Icon, type IconName } from './icons';
 
 /** Human text for any error thrown by an API call. */
 export function errorText(err: unknown): string {
@@ -12,6 +14,7 @@ export function ErrorBanner({ error, onRetry }: { error: unknown; onRetry?: () =
   if (!error) return null;
   return (
     <div className="banner banner-error" role="alert">
+      <Icon name="alert" />
       <span>{errorText(error)}</span>
       {onRetry && (
         <button type="button" className="btn btn-small" onClick={onRetry}>
@@ -22,11 +25,65 @@ export function ErrorBanner({ error, onRetry }: { error: unknown; onRetry?: () =
   );
 }
 
-export function Spinner({ label = 'Loading…' }: { label?: string }) {
+export function Spinner({ label = 'Loading…', inline }: { label?: string; inline?: boolean }) {
   return (
-    <p className="muted" role="status" aria-live="polite">
-      {label}
+    <p className={inline ? 'loading loading-inline' : 'loading'} role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      <span>{label}</span>
     </p>
+  );
+}
+
+/** The title row of an admin page: optional back link, title, subtitle and actions. */
+export function PageHeader({
+  title,
+  subtitle,
+  back,
+  actions,
+}: {
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  back?: { to: string; label: string };
+  actions?: React.ReactNode;
+}) {
+  return (
+    <header className="page-header">
+      <div className="page-header-text">
+        {back && (
+          <Link className="page-back" to={back.to}>
+            <Icon name="chevronLeft" size={16} />
+            {back.label}
+          </Link>
+        )}
+        <h1>{title}</h1>
+        {subtitle && <p className="muted">{subtitle}</p>}
+      </div>
+      {actions && <div className="page-actions">{actions}</div>}
+    </header>
+  );
+}
+
+/** Says why a list is empty and what to do about it. */
+export function EmptyState({
+  icon,
+  title,
+  children,
+  action,
+}: {
+  icon: IconName;
+  title: string;
+  children?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="empty">
+      <span className="empty-icon">
+        <Icon name={icon} size={26} />
+      </span>
+      <h3>{title}</h3>
+      {children && <p className="muted">{children}</p>}
+      {action}
+    </div>
   );
 }
 
@@ -76,36 +133,59 @@ export function useAction() {
 export function Field({
   label,
   hint,
+  error,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Shown instead of the hint while the value is not acceptable. */
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="field">
+    <label className={error ? 'field field-invalid' : 'field'}>
       <span className="field-label">{label}</span>
       {children}
-      {hint && <span className="field-hint">{hint}</span>}
+      {error ? <span className="field-error" role="alert">{error}</span> : hint && <span className="field-hint">{hint}</span>}
     </label>
   );
 }
 
+/** A switch: a checkbox with role="switch", styled as a toggle. */
 export function Toggle({
   checked,
   onChange,
   label,
+  description,
   disabled,
+  hideLabel,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  description?: string;
   disabled?: boolean;
+  hideLabel?: boolean;
 }) {
   return (
     <label className="toggle">
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      <span>{label}</span>
+      <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      {hideLabel ? (
+        <span className="visually-hidden">{label}</span>
+      ) : description ? (
+        <span className="toggle-detail">
+          <span className="strong">{label}</span>
+          <span className="muted small">{description}</span>
+        </span>
+      ) : (
+        <span>{label}</span>
+      )}
     </label>
   );
+}
+
+/** Initials for an avatar: "Anna Rossi" -> "AR". */
+export function initials(name: string): string {
+  const parts = name.trim().split(/[\s@._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? (parts[1]?.[0] ?? '') : '')).toUpperCase();
 }

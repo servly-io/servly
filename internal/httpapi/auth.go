@@ -131,6 +131,11 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.setSessionCookie(w, r, p, token)
+	writeJSON(w, http.StatusOK, sessionView(p))
+}
+
+func (s *server) setSessionCookie(w http.ResponseWriter, r *http.Request, p *app.Principal, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    token,
@@ -140,7 +145,6 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Expires:  p.Session.CreatedAt.Add(auth.AbsoluteTimeout),
 	})
-	writeJSON(w, http.StatusOK, sessionView(p))
 }
 
 func (s *server) logout(w http.ResponseWriter, r *http.Request) {

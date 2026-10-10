@@ -17,7 +17,7 @@ import (
 // The tables of docs/docs/domain-model.md. Both migration sets must create
 // exactly these.
 var wantTables = []string{
-	"assets", "audit_events", "dining_locations", "idempotency_records",
+	"assets", "audit_events", "dining_locations", "idempotency_records", "installation",
 	"menu_categories", "menu_items", "option_groups", "options",
 	"order_item_options", "order_items", "order_number_counters",
 	"order_status_events", "orders", "payments", "restaurant_locations",

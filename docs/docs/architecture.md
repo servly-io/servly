@@ -36,7 +36,7 @@ flowchart LR
 | Package | Owns | May import |
 |---|---|---|
 | `cmd/servly` | `main`; embeds tzdata | `internal/cli` |
-| `internal/cli` | cobra commands `serve`, `migrate`, `config`, `version`; wiring | everything |
+| `internal/cli` | operator commands `serve`, `migrate`, `config`, `version`, `user set-password`, `tenant create`; no business operations (ADR 0006) | everything |
 | `internal/platform/config` | configuration from flags, env and file (viper) | - |
 | `internal/platform/database` | open SQLite/PostgreSQL, migrations, `InTx`, `Timestamp` | `migrations` |
 | `internal/platform/database/dbtest` | fresh migrated databases for tests, per dialect | `database` |
