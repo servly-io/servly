@@ -5,6 +5,8 @@
 package config
 
 import (
+	"github.com/servly-io/servly/internal/platform/secretbox"
+
 	"errors"
 	"fmt"
 	"log/slog"
@@ -40,6 +42,8 @@ const (
 	KeyCookieSecure   = "http.cookie_secure"
 	KeyTrustProxy     = "http.trust_proxy_headers"
 	KeyPublicBaseURL  = "http.public_base_url"
+	KeySecretKey      = "secret_key"
+	KeySandbox        = "payments.sandbox"
 )
 
 var defaults = map[string]any{
@@ -53,6 +57,8 @@ var defaults = map[string]any{
 	KeyCookieSecure:   "auto",
 	KeyTrustProxy:     false,
 	KeyPublicBaseURL:  "",
+	KeySecretKey:      "",
+	KeySandbox:        false,
 }
 
 // ConfigEnv names the variable that points at the config file.
@@ -78,6 +84,12 @@ type Config struct {
 	// PublicBaseURL is the address guests reach the server at, used in QR
 	// codes, e.g. "http://192.168.1.20:8080". Empty: taken from the request.
 	PublicBaseURL string
+	// SecretKey (base64, 32 bytes) encrypts payment provider credentials.
+	// Empty disables online payments.
+	SecretKey string
+	// PaymentsSandbox offers the built-in sandbox provider: a fake hosted
+	// checkout for demos and tests. Never for real guests.
+	PaymentsSandbox bool
 	// File is the config file that was read, or empty.
 	File string
 }
@@ -169,6 +181,7 @@ func resolve(v *viper.Viper) (Config, error) {
 		LogFormat:      v.GetString(KeyLogFormat),
 		CookieSecure:   v.GetString(KeyCookieSecure),
 		PublicBaseURL:  strings.TrimRight(v.GetString(KeyPublicBaseURL), "/"),
+		SecretKey:      v.GetString(KeySecretKey),
 	}
 	var errs []error
 
@@ -197,6 +210,16 @@ func resolve(v *viper.Viper) (Config, error) {
 		errs = append(errs, fmt.Errorf("%s: %q is not a boolean", KeyTrustProxy, v.GetString(KeyTrustProxy)))
 	}
 	c.TrustProxy = trust
+	sandbox, err := strconv.ParseBool(v.GetString(KeySandbox))
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s: %q is not a boolean", KeySandbox, v.GetString(KeySandbox)))
+	}
+	c.PaymentsSandbox = sandbox
+	if c.SecretKey != "" {
+		if _, err := secretbox.Parse(c.SecretKey); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", KeySecretKey, err))
+		}
+	}
 	if c.CookieSecure != "auto" && c.CookieSecure != "true" && c.CookieSecure != "false" {
 		errs = append(errs, fmt.Errorf("%s: %q is not auto, true or false", KeyCookieSecure, c.CookieSecure))
 	}

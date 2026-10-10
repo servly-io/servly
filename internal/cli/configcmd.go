@@ -52,6 +52,8 @@ func newConfigCommand(f *rootFlags) *cobra.Command {
 				"migrate_on_start": cfg.MigrateOnStart,
 				"database":         map[string]string{"driver": string(cfg.DatabaseDriver), "url": redactURL(cfg.DatabaseURL)},
 				"log":              map[string]string{"level": cfg.LogLevel.String(), "format": cfg.LogFormat},
+				"secret_key":       redactSecret(cfg.SecretKey),
+				"payments":         map[string]bool{"sandbox": cfg.PaymentsSandbox},
 			}
 			enc := yaml.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent(2)
@@ -84,4 +86,12 @@ func redactURL(s string) string {
 		u.RawQuery = q.Encode()
 	}
 	return u.String()
+}
+
+// redactSecret shows only whether a secret is set.
+func redactSecret(s string) string {
+	if s == "" {
+		return ""
+	}
+	return "REDACTED"
 }
