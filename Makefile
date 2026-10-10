@@ -20,7 +20,7 @@ RACE      := $(if $(filter 1,$(shell $(GO) env CGO_ENABLED)),-race,)
 TESTCOVER ?= $(RACE) -covermode=atomic -coverprofile=coverage.out -coverpkg=./...
 GOJUNITREPORT_VERSION ?= v2.1.0
 
-.PHONY: all build build-go web web-deps web-lint web-typecheck run image test test-report test-integration fmt-check \
+.PHONY: all build build-go web web-deps web-lint web-typecheck run demo image test test-report test-integration fmt-check \
         cover check vet fmt lint clean install docs docs-serve
 
 all: build
@@ -50,6 +50,12 @@ web-typecheck: web-deps
 ## run: build and serve locally on :8080 with SQLite in ./data and readable logs
 run: build
 	SERVLY_LOG_FORMAT=text $(DIST)/servly serve
+
+## demo: a local production-like demo: fresh data in ./.demo, restaurant, menu,
+## tables and staff created through the real API, a sample guest order; prints
+## sign-ins and guest URLs, serves until Ctrl-C. DEMO_PORT, DEMO_HOST, DEMO_DIR.
+demo: build
+	scripts/demo.sh
 
 ## image: build the container image (see Containerfile).
 image:

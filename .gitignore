@@ -9,6 +9,7 @@
 
 # local runtime data: SQLite databases, uploaded assets, local config
 /data/
+/.demo/
 *.db
 *.db-wal
 *.db-shm

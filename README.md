@@ -18,7 +18,13 @@ echo "a long password" | dist/servly tenant create --name "Trattoria Roma" --tim
 SERVLY_LOG_FORMAT=text dist/servly serve      # http://localhost:8080/login
 ```
 
-Then, in the browser: build the menu under **Menu**, add tables under **Tables**, print the QR codes, and watch orders arrive under **Orders**.
+Then, in the browser: build the menu under **Menu**, add tables under **Tables**, print the QR codes, and watch orders arrive under **Orders**. Step by step: [Setting up a restaurant](docs/docs/setup.md).
+
+Or see it all prepared, with sign-ins and guest links printed:
+
+```bash
+make demo
+```
 
 In a container:
 
