@@ -5,7 +5,7 @@ title: Domain model
 
 This page is the contract for entities, the schema, the order and payment lifecycles, and pricing. The executable form of the contract:
 
-* schema: `migrations/sqlite/00001_initial_schema.sql`, `migrations/postgres/00001_initial_schema.sql`
+* schema: `migrations/sqlite/*.sql` and `migrations/postgres/*.sql`, applied in version order
 * types and repository interfaces: `internal/{tenant,menu,orders,payments}`
 * state machines: `orders.ValidateTransition`, `payments.ValidateTransition`, `payments.Summarize`
 
@@ -44,8 +44,8 @@ erDiagram
 | `assets` | uploaded images: storage key, type, size, hash | yes |
 | `menu_categories` | named, ordered, enable/disable | yes |
 | `menu_items` | name, description, `price_minor`, image, `is_enabled` (admin), `is_available` (sold out), `archived_at` | yes |
-| `option_groups` | per item: `min_select`, `max_select` | yes |
-| `options` | per group: `price_delta_minor` (may be negative), `is_available` | yes |
+| `option_groups` | per item: `min_select`, `max_select`; `archived_at` when removed from the item | yes |
+| `options` | per group: `price_delta_minor` (may be negative), `is_available`; `archived_at` when removed | yes |
 | `dining_locations` | a table or pickup point; `public_token` in its QR code | yes |
 | `order_number_counters` | last order number per location and business date | yes |
 | `orders` | the order header and totals; snapshots | yes |
@@ -66,7 +66,7 @@ erDiagram
 6. An order, its lines, options, its first status event and its idempotency record commit in one transaction.
 7. Every tenant-owned query is scoped by `tenant_id`. Composite foreign keys make cross-tenant references impossible in the schema itself.
 8. Replaying an `Idempotency-Key` returns the original order and never creates a second one.
-9. Completed and cancelled orders, their payments and their events are never deleted. A menu item that an order references is archived (`archived_at`) instead of deleted.
+9. Completed and cancelled orders, their payments and their events are never deleted. A menu item that an order references is archived (`archived_at`) instead of deleted. Option groups and options removed from an item are always archived, never deleted.
 10. `orders.version` increases with every change to the order. A status change states the version it expects.
 
 ## Pricing

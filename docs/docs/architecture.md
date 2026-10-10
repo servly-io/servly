@@ -48,7 +48,9 @@ flowchart LR
 | `internal/menu` | categories, items, option groups, options | `money`, `apperr` |
 | `internal/orders` | orders, lines, status machine, idempotency contract | `tenant`, `payments`, `money` |
 | `internal/payments` | payment records, payment status machine, order payment summary | `money`, `apperr` |
-| `internal/auth` *(Phase 2)* | password hashing, sessions, CSRF | `tenant` |
+| `internal/auth` | Argon2id password hashing, server-side sessions | `apperr`, `database` |
+| `internal/audit` | audit events, written in the transaction of the change | `database` |
+| `internal/app` | use cases: transactions, stores, domain rules, audit | domain packages, `*sql` stores |
 | `internal/storage` *(Phase 2)* | uploaded assets on disk | - |
 | `internal/notifications` *(Phase 4)* | process-local event broadcaster for SSE | - |
 | `internal/httpapi` | routing, middleware, handlers, error mapping, frontend serving | domain packages |
@@ -59,8 +61,9 @@ Rules:
 
 1. Domain packages (`tenant`, `menu`, `orders`, `payments`, `money`) do not import `net/http`, a database driver or `httpapi`. They may use `database.Timestamp` as a value type.
 2. Handlers decode, authorize, call a use case and encode. Business rules stay in the domain packages.
-3. Each domain package declares a `Repository` interface. Its SQL implementation goes in a `store` subpackage, for example `internal/menu/store`. The implementation takes a `database.Querier`, so the same code runs on `*sql.DB` or inside a transaction.
-4. The frontend consumes the API. It never decides prices, authorization or order state.
+3. Each domain package declares a `Repository` interface. Its SQL implementation is a `<module>sql` subpackage, for example `internal/menu/menusql`. The implementation takes a `database.Querier`, so the same code runs on `*sql.DB` or inside a transaction.
+4. Use cases live in `internal/app`. A use case opens the transaction, builds the stores on it, applies the domain rules and writes the audit event. `httpapi` and `cli` call use cases and never open transactions.
+5. The frontend consumes the API. It never decides prices, authorization or order state.
 
 ## Persistence conventions
 

@@ -6,6 +6,8 @@ package menu
 
 import (
 	"context"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -53,16 +55,17 @@ func (i *Item) Orderable() bool {
 // OptionGroup is a choice on an item, such as "Size" (pick exactly 1) or
 // "Extras" (pick 0..3).
 type OptionGroup struct {
-	ID        uuid.UUID
-	TenantID  uuid.UUID
-	ItemID    uuid.UUID
-	Name      string
-	MinSelect int
-	MaxSelect int
-	Position  int
-	Options   []Option
-	CreatedAt database.Timestamp
-	UpdatedAt database.Timestamp
+	ID         uuid.UUID
+	TenantID   uuid.UUID
+	ItemID     uuid.UUID
+	Name       string
+	MinSelect  int
+	MaxSelect  int
+	Position   int
+	Options    []Option
+	ArchivedAt database.Timestamp // removed from the item; kept for past orders
+	CreatedAt  database.Timestamp
+	UpdatedAt  database.Timestamp
 }
 
 // Option is one choice within a group. PriceDelta may be negative; the unit
@@ -75,36 +78,77 @@ type Option struct {
 	PriceDelta    money.Amount
 	Position      int
 	IsAvailable   bool
+	ArchivedAt    database.Timestamp // removed from the item; kept for past orders
 	CreatedAt     database.Timestamp
 	UpdatedAt     database.Timestamp
 }
+
+// Text limits; the schema does not enforce them, the domain does.
+const (
+	MaxNameLen        = 120
+	MaxDescriptionLen = 1000
+	MaxGroupsPerItem  = 20
+	MaxOptionsPerItem = 100
+)
 
 var (
 	ErrNotFound         = apperr.NotFound("menu_not_found", "menu entry not found")
 	ErrInvalidPrice     = apperr.Invalid("invalid_price", "price must be between 0 and the maximum amount")
 	ErrInvalidSelection = apperr.Invalid("invalid_option_group", "option group needs 0 <= min_select <= max_select and max_select >= 1")
 	ErrNameRequired     = apperr.Invalid("name_required", "name must not be empty")
+	ErrTextTooLong      = apperr.Invalid("text_too_long", "name or description is too long")
+	ErrTooManyOptions   = apperr.Invalid("too_many_options", "an item has at most 20 option groups and 100 options")
+	ErrCategoryRequired = apperr.Invalid("category_required", "the item needs an existing category")
 )
+
+func checkText(name, description string) error {
+	if strings.TrimSpace(name) == "" {
+		return ErrNameRequired
+	}
+	if utf8.RuneCountInString(name) > MaxNameLen || utf8.RuneCountInString(description) > MaxDescriptionLen {
+		return ErrTextTooLong
+	}
+	return nil
+}
+
+// Validate checks a category.
+func (c *Category) Validate() error { return checkText(c.Name, c.Description) }
 
 // Validate checks the rules of a group that the schema also enforces, so
 // they fail early with a useful error.
 func (g *OptionGroup) Validate() error {
-	if g.Name == "" {
-		return ErrNameRequired
+	if err := checkText(g.Name, ""); err != nil {
+		return err
 	}
 	if g.MinSelect < 0 || g.MaxSelect < 1 || g.MaxSelect < g.MinSelect {
 		return ErrInvalidSelection
+	}
+	for k := range g.Options {
+		o := &g.Options[k]
+		if err := checkText(o.Name, ""); err != nil {
+			return err
+		}
+		if o.PriceDelta < -money.MaxAmount || o.PriceDelta > money.MaxAmount {
+			return ErrInvalidPrice
+		}
 	}
 	return nil
 }
 
 // Validate checks an item and its groups.
 func (i *Item) Validate() error {
-	if i.Name == "" {
-		return ErrNameRequired
+	if err := checkText(i.Name, i.Description); err != nil {
+		return err
 	}
 	if i.Price < 0 || i.Price > money.MaxAmount {
 		return ErrInvalidPrice
+	}
+	n := 0
+	for _, g := range i.Groups {
+		n += len(g.Options)
+	}
+	if len(i.Groups) > MaxGroupsPerItem || n > MaxOptionsPerItem {
+		return ErrTooManyOptions
 	}
 	for k := range i.Groups {
 		if err := i.Groups[k].Validate(); err != nil {
@@ -115,20 +159,36 @@ func (i *Item) Validate() error {
 }
 
 // Repository persists the menu. Every method takes the tenant id; a record of
-// another tenant is reported as ErrNotFound.
+// another tenant is reported as ErrNotFound. Archived items, groups and
+// options are never listed; GetItem returns an archived item with its
+// ArchivedAt set.
 type Repository interface {
 	ListCategories(ctx context.Context, tenantID, locationID uuid.UUID) ([]Category, error)
+	GetCategory(ctx context.Context, tenantID, id uuid.UUID) (*Category, error)
 	CreateCategory(ctx context.Context, c *Category) error
 	UpdateCategory(ctx context.Context, c *Category) error
+	// SetCategoryPositions numbers the given categories 0, 1, 2… in order.
+	SetCategoryPositions(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error
 
-	// ListItems returns items with their option groups and options.
+	// ListItems returns the location's items with their groups and options,
+	// by category position and item position.
 	ListItems(ctx context.Context, tenantID, locationID uuid.UUID) ([]Item, error)
 	GetItem(ctx context.Context, tenantID, id uuid.UUID) (*Item, error)
-	// CreateItem and UpdateItem write the item together with its groups and
-	// options, replacing the previous groups on update.
+	// CreateItem writes the item with its groups and options; every id is set.
 	CreateItem(ctx context.Context, i *Item) error
+	// UpdateItem writes the item's own fields.
 	UpdateItem(ctx context.Context, i *Item) error
-	// DeleteItem removes an item no order references and archives one that
-	// is referenced. It reports which it did.
-	DeleteItem(ctx context.Context, tenantID, id uuid.UUID) (archived bool, err error)
+	// SaveGroups makes the item's groups and options match groups: entries
+	// with a known id are updated, entries with a nil id are inserted (and
+	// get an id), and existing entries that are absent are archived. An id
+	// that belongs to another item is ErrNotFound.
+	SaveGroups(ctx context.Context, tenantID, itemID uuid.UUID, groups []OptionGroup, now database.Timestamp) error
+	// SetItemPositions numbers the given items 0, 1, 2… in order.
+	SetItemPositions(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error
+	// ItemReferenced reports whether any order line points at the item.
+	ItemReferenced(ctx context.Context, tenantID, id uuid.UUID) (bool, error)
+	// DeleteItem removes an unreferenced item with its groups and options.
+	DeleteItem(ctx context.Context, tenantID, id uuid.UUID) error
+	// ArchiveItem hides a referenced item for good.
+	ArchiveItem(ctx context.Context, tenantID, id uuid.UUID, now database.Timestamp) error
 }
