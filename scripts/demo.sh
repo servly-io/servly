@@ -49,8 +49,10 @@ OWNER_EMAIL=owner@example.com   OWNER_PW="$(password)"
 MANAGER_EMAIL=manager@example.com MANAGER_PW="$(password)"
 STAFF_EMAIL=staff@example.com   STAFF_PW="$(password)"
 
+# Online payments use the sandbox provider: a fake checkout page, no real money.
 export SERVLY_DATA_DIR="$DIR" SERVLY_LISTEN_ADDR="$LISTEN" SERVLY_HTTP_PUBLIC_BASE_URL="$BASE" \
-  SERVLY_LOG_FORMAT=text SERVLY_LOG_LEVEL=warn
+  SERVLY_LOG_FORMAT=text SERVLY_LOG_LEVEL=warn \
+  SERVLY_SECRET_KEY="$(head -c 32 /dev/urandom | base64)" SERVLY_PAYMENTS_SANDBOX=true
 
 # --- 1. fresh data, restaurant and owner (setup guide step 3) ---------------
 echo "==> fresh data directory $DIR"
@@ -119,6 +121,8 @@ TABLE1_TOKEN="$(printf '%s' "${TABLE_URLS[0]#*|}" | sed 's#.*/m/##')"
 echo "==> staff"
 api POST /api/admin/staff "{\"email\":\"$MANAGER_EMAIL\",\"display_name\":\"Marco Manager\",\"role\":\"manager\",\"password\":\"$MANAGER_PW\"}" >/dev/null
 api POST /api/admin/staff "{\"email\":\"$STAFF_EMAIL\",\"display_name\":\"Sam Staff\",\"role\":\"staff\",\"password\":\"$STAFF_PW\"}" >/dev/null
+echo "==> online payments (sandbox): tables pay when finished, pickup pays when ordering"
+api PUT /api/admin/payments/account '{"provider":"sandbox","secret_key":"sandbox","table_flow":"after","pickup_flow":"before"}' >/dev/null
 api POST /api/auth/logout >/dev/null
 
 # --- 4. a guest orders, as a phone would (step 9) ---------------------------
@@ -144,6 +148,7 @@ cat <<EOF
 
  Order board     $BASE/staff        (order #$ORDER_NO from Table 1 is waiting)
  Administration  $BASE/admin        (QR sheet: $BASE/admin/tables/print)
+ Payments        sandbox: guests "pay" on a fake checkout page, no real money
 
  Guest menus (what the QR codes open):
 EOF
