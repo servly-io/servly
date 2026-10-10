@@ -414,7 +414,7 @@ The initial domain model includes:
 ### Payments
 
 * `payments`
-* `payment_accounts`, `payment_checkouts`, `payment_events`, `payment_readers` (Phase 7, §8.1)
+* `payment_accounts`, `payment_checkouts`, `payment_events` (Phase 7.0), `payment_readers` (Phase 7.4)
 
 ### Operations
 
@@ -473,14 +473,7 @@ Requirements:
 
 Do not assume that every restaurant needs every intermediate state. However, the MVP must have one documented, predictable workflow.
 
-Phase 7 adds one state before `new` for orders that are paid when ordering (ADR 0007):
-
-```
-awaiting_payment -> new         (payment confirmed by the provider)
-awaiting_payment -> cancelled   (checkout expired or failed)
-```
-
-The kitchen never sees `awaiting_payment` orders. Orders paid after serving do not use this state.
+Orders that are paid when ordering do not add a state (ADR 0008, which replaces ADR 0007's `awaiting_payment`). The checkout stores the priced cart, and the order is created as `new` in the same transaction that records the confirmed payment. The kitchen never sees an unpaid prepaid order. A failed or expired checkout leaves no order behind.
 
 ---
 
@@ -552,7 +545,7 @@ Adapters are built in this order: **Stripe, Xendit, HitPay, PayPal**. Mollie, Ad
 
 **Guest flows.**
 * **Tables:** pay from the phone when finished (default).
-* **Pickup:** pay when ordering (default once online payments work), using `awaiting_payment` with an expiry.
+* **Pickup:** pay when ordering (default once online payments work). The order is created once the payment is confirmed (ADR 0008).
 * On phones, QR methods use the provider's app-switch flow. The checkout page uses the guest's language.
 
 **Staff flows.**
@@ -606,11 +599,10 @@ Initial endpoint contract:
 
 ### Payments (Phase 7)
 
-* `GET /api/admin/payments/catalog`
-* `POST /api/admin/payment-accounts`, `GET`/`PATCH`/`DELETE /api/admin/payment-accounts/{id}`, `POST /api/admin/payment-accounts/{id}/test`
-* `POST /api/admin/orders/{id}/payments/reader`, `POST /api/admin/orders/{id}/payments/qr`
-* `POST /api/public/orders/{orderToken}/checkout`
+* `GET /api/admin/payments`, `PUT`/`PATCH`/`DELETE /api/admin/payments/account`
+* `POST /api/public/checkouts`, `POST /api/public/orders/{orderToken}/checkout`, `GET /api/public/checkouts/{token}`
 * `POST /api/payments/webhooks/{provider}/{accountId}`
+* Later: `POST /api/admin/orders/{id}/payments/reader` (7.4), `POST /api/admin/orders/{id}/payments/qr` (7.2)
 
 ### Access and health
 
@@ -1079,19 +1071,20 @@ Do not add subscription billing or automated provisioning until the operational 
 
 Design: §8.1, ADR 0007, `docs/docs/payments.md`. Each step ships on its own and is usable on its own.
 
-**7.0 - Contracts and prerequisites**
+**7.0 - Contracts and prerequisites** (done, except order charges)
 
-* The adapter interface, the provider and method catalog per country, the data model (`payment_accounts`, `payment_checkouts`, `payment_events`, `payment_readers`, provider columns on `payments`), and credential encryption.
-* The `awaiting_payment` order state and its transitions.
-* The reconciler: polling with backoff, restart-safe, safe with two processes.
-* Order charges (service charge and taxes per location), required before SG, MY, ID and US launches.
+* Done: the adapter interface, the market catalog, the data model (`payment_accounts`, `payment_checkouts`, `payment_events`, provider columns on `payments`), and credential encryption (`secret_key`).
+* Done: prepaid orders created on payment (ADR 0008).
+* Done: the reconciler (polling with backoff, restart-safe, safe with two processes), and the sandbox provider for demos and tests.
+* Open: order charges (service charge and taxes per location), required before SG, MY, ID and US launches.
 
-**7.1 - Stripe, own keys**
+**7.1 - Stripe, own keys** (done)
 
-* Wizard steps 1-5 and 7.
-* Tables pay when finished; pickup pays when ordering.
+* The wizard: country, provider, connect, when guests pay. Stripe's dynamic payment methods are managed in the Stripe dashboard.
+* Tables pay when finished; pickup pays when ordering; or the guest chooses.
 * Webhooks and polling; refunds through the provider.
 * Markets: EU, US and SG; MY for cards, FPX and GrabPay.
+* Still to prove with a real Stripe test account: one end-to-end payment per listed method. The adapter is tested against recorded responses only.
 
 **7.2 - Xendit**
 
@@ -1123,7 +1116,7 @@ Exit criteria (for every step that adds an adapter):
 * A test payment completes end to end, with the provider's sandbox, for every method the step lists.
 * A paid order is marked paid exactly once, whether the webhook, the reconciler or both deliver the result, and also after a restart in between.
 * A forged or replayed webhook, a wrong amount, a wrong currency, and another tenant's account are all rejected.
-* An unpaid prepaid order expires, never reaches the kitchen, and a late payment for it is refunded automatically.
+* An unpaid prepay checkout never reaches the kitchen, and a declined or expired one leaves no order.
 * A full and a partial refund through the provider update the order's payment status.
 * No card data or credentials appear in logs, API responses, or exports.
 * A local install without a public address settles payments by polling alone.
@@ -1186,7 +1179,7 @@ Every phase must add automated tests at the appropriate level.
 * Minor-unit conversion per adapter and currency, including IDR and zero-decimal currencies.
 * Webhook signature, timestamp tolerance, and deduplication.
 * Webhook and reconciler racing on the same checkout.
-* Expiry of `awaiting_payment` orders and refund of late payments.
+* A declined or expired prepay checkout leaves no order; a paid one creates exactly one.
 * Sandbox end-to-end runs, kept out of the default test run behind an environment variable.
 
 ### Reliability tests

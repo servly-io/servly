@@ -46,6 +46,10 @@ spec:
           value: ""
         - name: SERVLY_LOG_FORMAT
           value: text
+        # Online payments (optional): 32 random bytes, base64, that encrypt the
+        # payment provider's keys. Better kept in a Podman secret than here.
+        # - name: SERVLY_SECRET_KEY
+        #   value: ""
         # Behind an HTTPS reverse proxy, also set:
         # - name: SERVLY_HTTP_TRUST_PROXY_HEADERS
         #   value: "true"

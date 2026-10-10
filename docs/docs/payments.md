@@ -3,7 +3,16 @@ id: payments
 title: Payment integrations
 ---
 
-**Status:** planned (MASTER_PLAN.md Phase 7, [ADR 0007](adr/0007-online-payments.md)). Today servly records payments by hand: cash, an external card terminal, or other. This page is the design for taking payments through payment providers.
+**Status:** steps 7.0 and 7.1 of MASTER_PLAN.md Phase 7 are built ([ADR 0007](adr/0007-online-payments.md), [ADR 0008](adr/0008-prepaid-orders-on-payment.md)):
+- the provider contract;
+- credential encryption;
+- hosted checkouts with polling and webhooks;
+- the **Stripe** adapter (own keys);
+- a built-in **sandbox** provider for demos;
+- the setup wizard;
+- both guest flows.
+
+Xendit, HitPay, card readers, platform connect and PayPal follow (7.2-7.5). Manual payments (cash, an external card terminal, other) work as before.
 
 servly does not process cards itself, and it does not invent a payment flow. Every provider below already solves card security, Strong Customer Authentication, local wallets and payouts. servly connects to them through a small adapter and follows their recommended integration. It also keeps the rule it has today: **the server, not the guest's browser, decides when an order is paid.**
 
@@ -62,7 +71,7 @@ Stripe has no DuitNow QR. **Recommended: HitPay**, which covers DuitNow QR, FPX,
 | 3 | **PayPal** | common, especially DE | Stripe (merchants with their own Stripe account, EEA, UK and CH), Mollie, PayPal directly |
 | 4 | Klarna | common online, rare in restaurants | Stripe, Mollie, Adyen |
 
-iDEAL is moving to Wero: co-branding during 2026, with iDEAL expected to shut down in 2027–28. The provider handles the change, so the adapter keeps the method ID and shows the provider's current name. **Recommended: Stripe.** **Mollie** suits Dutch, Belgian and German small businesses. **SumUp** is the most common card reader in small European restaurants, and its Cloud API lets a web app start a payment on the reader.
+iDEAL is moving to Wero: co-branding during 2026, with iDEAL expected to shut down in 2027-28. The provider handles the change, so the adapter keeps the method ID and shows the provider's current name. **Recommended: Stripe.** **Mollie** suits Dutch, Belgian and German small businesses. **SumUp** is the most common card reader in small European restaurants, and its Cloud API lets a web app start a payment on the reader.
 
 ### United States (USD)
 
@@ -89,7 +98,7 @@ iDEAL is moving to Wero: co-branding during 2026, with iDEAL expected to shut do
 | 2 | **Xendit** | QRIS and Indonesian wallets; one adapter for several SEA markets | ID, MY, PH, TH, VN |
 | 3 | **HitPay** | DuitNow QR and PayNow for small restaurants; terminals | SG, MY |
 | 4 | **PayPal** (direct) | PayPal and Venmo where Stripe cannot offer them, and for platform accounts | global, US Venmo |
-| later | Mollie, Adyen, Midtrans, Square, SumUp, Fiuu | when restaurants ask for them | – |
+| later | Mollie, Adyen, Midtrans, Square, SumUp, Fiuu | when restaurants ask for them | - |
 
 Stripe and Xendit together cover the top-ranked method in all four regions, except DuitNow QR, which HitPay adds.
 
@@ -108,12 +117,12 @@ Platform connect needs platform credentials that only an operator holds. They ar
 
 ### The setup wizard
 
-Settings → **Payments** → **Set up online payments**. It follows the same pattern as the first-run setup: one decision per step, and resuming where it stopped.
+Admin → **Payments**. It follows the same pattern as the first-run setup, one decision per step. Steps 1-3 and 5 are built; 4 and 6 come with the providers that need them.
 
 1. **Where you trade.** The country, suggested from the restaurant's currency and timezone. It decides which providers and methods the next step offers.
 2. **Choose a provider.** Provider cards in the ranked order for that country, with the recommended one first. Each card lists the methods guests there use most, its card readers, and a link to its pricing. servly does not compare fees; providers change them.
 3. **Connect.** "Connect with Stripe" (platform) or the own-keys form, with a link to the right page of the provider's dashboard and a screenshot of where the key is. Test mode comes first: test keys, or the provider's sandbox.
-4. **Payment methods.** Switches for the methods the connected account can actually accept, read from the provider. Each has a one-line explanation, such as "QRIS: every Indonesian e-wallet and banking app can pay it". Recommended methods are switched on.
+4. **Payment methods.** For Stripe, methods are switched on in the Stripe dashboard (dynamic payment methods), and Checkout offers each guest what fits. The page names the methods that market uses most. Providers without dynamic methods (Xendit, HitPay) will get switches here.
 5. **When guests pay.** Separately for tables and pickup points:
    * **Tables:** *pay from the phone when finished* (default), *pay when ordering*, or *staff only*.
    * **Pickup points:** *pay when ordering* (default once online payments work), *pay at the counter*, or *either*.
@@ -125,7 +134,7 @@ Settings → **Payments** → **Set up online payments**. It follows the same pa
    * a public address, or the note that webhooks are off and polling is used;
    * the return address the guest lands on.
 
-The wizard stores progress on the server, so closing the browser does not lose a connected account. Disconnecting is one action and keeps every past payment record.
+The connected account is stored on the server; the wizard's earlier steps are only choices in the browser. Disconnecting is one action and keeps every past payment record. It waits while guests are still paying, so no open checkout is orphaned.
 
 ## Guest flows
 
@@ -140,13 +149,13 @@ The order is sent as today. The order status page shows **Pay now · €24.50**:
 
 ### Pay when ordering (pickup, or tables if chosen)
 
-1. The cart's button becomes **Pay and order · €24.50**.
-2. The order is created as **awaiting payment**. The kitchen does not see it yet.
-3. The guest pays on the hosted page.
-4. Once the payment is confirmed, the order becomes **new** and appears on the board.
-5. An unpaid order expires after 15 minutes (configurable) and is cancelled with the reason "payment not completed". Retries use the same idempotency key, so a guest who pays twice is caught by the reconciler and refunded automatically.
+1. The cart's button becomes **Pay and order · €24.50** (or **Pay now** and **Order, pay at the counter** where the guest chooses).
+2. servly prices the cart and stores it with a new checkout. No order exists yet, so the kitchen sees nothing.
+3. The guest pays on the hosted page and returns to `/pay/{checkout}`. That page waits for the confirmation.
+4. Once servly confirms the payment, it creates the order from the priced cart, in the same transaction as the payment. The order appears on the board as **new**, already paid, and the guest lands on its status page.
+5. A checkout that is declined or expires (after about 30 minutes) leaves no order behind. The guest can try again with a new attempt.
 
-This adds one state to the order lifecycle: `awaiting_payment → new`, or `awaiting_payment → cancelled`. ADR 0007 records it.
+[ADR 0008](adr/0008-prepaid-orders-on-payment.md) records why there is no "awaiting payment" order state. Where a dining location requires paying first, a plain order is refused with `payment_required`.
 
 ### QR methods on a phone
 
@@ -203,25 +212,24 @@ Each adapter owns its money conversion. servly stores ISO 4217 minor units. Some
 
 | Table | Holds |
 |---|---|
-| `payment_accounts` | per tenant and location: provider, mode (test/live), connection (own keys / platform), provider account ID, country, currency, enabled methods, guest-flow settings, **encrypted** credentials, status |
-| `payment_checkouts` | one hosted payment attempt: order, account, amount, currency, provider reference, status (`open`, `paid`, `failed`, `expired`, `cancelled`), expiry, idempotency key |
-| `payment_events` | every provider event received: provider, provider event ID (unique), signature result, received and processed times. Used for deduplication and audit |
-| `payment_readers` | paired card readers: provider, reader ID, label |
+| `payment_accounts` | one per location: provider, mode (test/live, from the key), provider account ID and name, country, when tables and pickup points pay, **sealed** credentials (key and webhook secret), status (`active`, `disabled`) |
+| `payment_checkouts` | one hosted payment attempt: kind (`bill` for an order, `prepay` for a cart), the order or the priced cart, account, amount, currency, provider reference, status (`open`, `paid`, `failed`, `expired`), next check and attempts (the reconciler's schedule), expiry, idempotency key |
+| `payment_events` | provider events received, unique per provider and event ID, for deduplication of retried webhooks; purged after 30 days |
+| `payment_readers` | (7.4) paired card readers: provider, reader ID, label |
 
-The existing `payments` table gains `provider`, `provider_ref`, `checkout_id` and a display detail (such as "Visa •••• 4242" or "QRIS · DANA"). It never holds card numbers or security codes. Order-level `payment_status` keeps its meaning and its values.
+The existing `payments` table gains the method `online` and the columns `provider`, `provider_ref` (the provider's payment ID, used for refunds), `checkout_id` and `detail`, a display detail such as "Apple Pay · Visa •••• 4242". Unique indexes on `(provider, provider_ref)` and on `checkout_id` make a second recording of the same payment impossible. It never holds card numbers or security codes. Order-level `payment_status` keeps its meaning and its values.
 
 ### API (additions)
 
 | Endpoint | Who |
 |---|---|
-| `GET /api/admin/payments/catalog?country=SG` | providers and methods ranked for a country (static, versioned with the app) |
-| `POST /api/admin/payment-accounts` | connect: verify own keys, or start platform onboarding (returns the provider URL) |
-| `GET`, `PATCH`, `DELETE /api/admin/payment-accounts/{id}` | settings, methods, guest flows; disconnect |
-| `POST /api/admin/payment-accounts/{id}/test` | run a test checkout |
-| `POST /api/admin/orders/{id}/payments/reader` | charge on a paired reader |
-| `POST /api/admin/orders/{id}/payments/qr` | dynamic QR for in-person payment |
-| `POST /api/public/orders/{orderToken}/checkout` | the guest starts paying; returns a hosted URL or app-switch link |
+| `GET /api/admin/payments` | whether online payments are available (secret key set), the market catalog with the providers servly can connect today, and the connected account |
+| `PUT`, `PATCH`, `DELETE /api/admin/payments/account` | connect (verifies the key with the provider), change when guests pay or add the webhook secret, disconnect |
+| `POST /api/public/checkouts` | pay first: the cart, with an `Idempotency-Key`; returns the checkout token and the hosted page |
+| `POST /api/public/orders/{orderToken}/checkout` | pay an existing order's outstanding amount |
+| `GET /api/public/checkouts/{token}` | the return page asks: open, paid (with the order token), failed or expired |
 | `POST /api/payments/webhooks/{provider}/{accountId}` | provider webhooks; public and signature-checked |
+| `POST /api/admin/orders/{id}/payments/reader`, `…/qr` | (7.2, 7.4) charge on a paired reader, dynamic QR for in-person payment |
 
 Permissions: connecting and settings need `settings.manage` (owner). Charging, the QR code and reader payments need `payments.record`. Refunds need `payments.refund`.
 
@@ -243,7 +251,7 @@ sequenceDiagram
   and polling
     S->>P: lookup open checkouts
   end
-  S->>S: one transaction: verify amount and currency, record payment, payment_status = paid, (awaiting_payment -> new), audit
+  S->>S: one transaction: verify amount and currency, (prepay: create the order), record payment, payment_status = paid, audit
   S-->>G: status page shows Paid (poll / SSE to staff)
 ```
 

@@ -111,6 +111,7 @@ Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`,
 {
   "restaurant": { "name": "Trattoria Roma", "currency": "EUR", "order_notes_enabled": true },
   "dining_location": { "name": "Table 4", "kind": "table" },
+  "payment": "after",
   "categories": [
     {
       "id": "…", "name": "Pizza", "description": "",
@@ -130,6 +131,8 @@ Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`,
 ```
 
 `404 menu_not_found` for an unknown or disabled token, a suspended tenant, or a closed location.
+
+`payment` says how guests here can pay online (see [Online payments](#online-payments)): `none`, `before` (pay when ordering: use `POST /api/public/checkouts`), `after` (order, then pay from the order page), or `either` (the guest chooses).
 
 ### `POST /api/public/orders`
 
@@ -232,7 +235,7 @@ Permission `payments.refund`.
 { "amount_minor": 500, "reason": "cold pizza" }
 ```
 
-Returns the order detail. The reason is required.
+Returns the order detail. The reason is required. For an online payment the refund goes through the provider first. If the provider refuses, nothing is recorded, and the error says why: for example `404 payments_not_connected` when the account was disconnected.
 
 ### `GET /api/admin/events`
 
@@ -360,6 +363,72 @@ The request creates the tenant, its location and the owner, and signs the owner 
 | `422` validation codes | `name_required`, `invalid_slug`, `invalid_currency`, `invalid_timezone`, `invalid_email`, `password_too_short`, `password_too_long` |
 | `429 rate_limited` | the per-IP sign-in limit applies |
 
+## Online payments
+
+Through payment providers ([Payment integrations](payments.md), ADR 0007, ADR 0008). All need the operator's `secret_key`; without it `GET /api/admin/payments` reports `"available": false`, and connecting fails with `422 secret_key_missing`.
+
+### `GET /api/admin/payments`
+
+Permission `settings.manage`. It returns:
+- `available`;
+- `sandbox`, whether the fake provider is offered;
+- `markets`, the catalog: per country or region, the methods guests use most and the providers, each with `recommended` and `available` (servly can connect it today);
+- `account`, the connected account or `null`.
+
+### `PUT /api/admin/payments/account`
+
+Permission `settings.manage`. Connects, or replaces, the location's account:
+
+```json
+{ "provider": "stripe", "secret_key": "rk_test_…", "webhook_secret": "whsec_…", "table_flow": "after", "pickup_flow": "before" }
+```
+
+servly verifies the key with the provider (`422 payment_credentials_invalid`), seals it, and returns the account:
+
+```json
+{ "provider": "stripe", "mode": "test", "account_name": "Roma GmbH", "account_ref": "acct_…", "country": "DE",
+  "table_flow": "after", "pickup_flow": "before", "webhooks": true,
+  "webhook_url": "https://…/api/payments/webhooks/stripe/<account id>", "updated_at": "…" }
+```
+
+The key is never returned. `table_flow` is `after`, `before` or `staff`. `pickup_flow` is `before`, `either` or `counter`. `409 payments_in_progress` while guests of the current account are still paying.
+
+### `PATCH /api/admin/payments/account`
+
+Any of `table_flow`, `pickup_flow`, `webhook_secret`.
+
+### `DELETE /api/admin/payments/account`
+
+`204`. The credentials are forgotten; payment records stay. `409 payments_in_progress` while checkouts are open (at most about 30 minutes).
+
+### `POST /api/public/checkouts`
+
+Pay first. The body and `Idempotency-Key` header are as for `POST /api/public/orders`. It answers `200 {"checkout_token": "…", "redirect_url": "https://checkout.stripe.com/…"}`. The same key returns the same checkout. No order exists until the payment is confirmed; then the order is created as `new`, already paid. `422 online_payment_not_offered` where the dining location does not take online payment first.
+
+Where a dining location's flow is `before`, `POST /api/public/orders` answers `422 payment_required`.
+
+### `POST /api/public/orders/{orderToken}/checkout`
+
+Pay an existing order's outstanding amount. It answers like the endpoint above. Tapping twice returns the same open checkout. Errors: `422 nothing_to_pay`, `422 online_payment_not_offered`. The public order shows `"pay_online": true` while this is possible.
+
+### `GET /api/public/checkouts/{token}`
+
+The page the provider sends the guest back to (`/pay/{token}`) polls this:
+
+```json
+{ "status": "paid", "kind": "prepay", "order_token": "…", "redirect_url": "…" }
+```
+
+`status` is `open`, `paid`, `failed` or `expired`. While `open`, each call (at most every 2 s per checkout) also asks the provider, so the guest does not wait for the reconciler.
+
+### `POST /api/payments/webhooks/{provider}/{accountId}`
+
+For the provider, not for servly's frontend: there is no session or CSRF token. The body is verified with the account's webhook signing secret. A wrong or old signature, an unknown account, or a provider mismatch answers `422 payment_webhook_invalid`, and nothing about the account is revealed. Each event is applied once, however often it is delivered. Stripe events: `checkout.session.completed`, `…async_payment_succeeded`, `…async_payment_failed`, `…expired`.
+
+### Payment object additions
+
+Order detail payments carry `"method": "online"`, `"provider": "stripe"` and `"detail": "Apple Pay · Visa •••• 4242"` for online payments. `recorded_by` is `null` for them.
+
 ## Changes from the plan
 
 | MASTER_PLAN.md §9 | This contract | Why |
@@ -369,3 +438,4 @@ The request creates the tenant, its location and the owner, and signs the owner 
 | - | `PATCH /api/admin/payments/{id}`, `POST …/refund` | the payment lifecycle needs them |
 | - | `/api/admin/settings`, `/api/admin/staff`, `/api/admin/assets`, `…/duplicate`, `…/rotate-token`, `/api/public/assets/{id}` | MVP capabilities of §2.1 |
 | - | `GET /api/setup`, `POST /api/setup` | first-run setup in the browser (ADR 0005); the CLI provisions tenants only on a managed platform (ADR 0006) |
+| - | `/api/admin/payments…`, `/api/public/checkouts…`, `/api/payments/webhooks/…` | online payments (MASTER_PLAN.md §8.1, Phase 7) |

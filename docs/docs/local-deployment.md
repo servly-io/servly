@@ -5,7 +5,7 @@ title: Local deployment
 
 A local deployment is one servly process on a machine in the restaurant: a mini PC, a NAS or a Raspberry Pi 4/5. It runs with SQLite, needs no internet after installation, and needs no account anywhere.
 
-Status: the server, health endpoints and migrations work. Ordering features arrive in Phases 2–4.
+Status: the server, health endpoints and migrations work. Ordering features arrive in Phases 2-4.
 
 ## Requirements
 
@@ -73,6 +73,8 @@ Settings resolve in this order (highest wins): command-line flag, environment va
 | `http.cookie_secure` | `SERVLY_HTTP_COOKIE_SECURE` | - | `auto`: `Secure` session cookie when the request came over HTTPS; `true` or `false` to force |
 | `http.trust_proxy_headers` | `SERVLY_HTTP_TRUST_PROXY_HEADERS` | - | `false`; `true` only behind a reverse proxy that sets `X-Forwarded-For`/`-Proto` |
 | `http.public_base_url` | `SERVLY_HTTP_PUBLIC_BASE_URL` | - | empty: taken from the request; the address guests use, for QR codes, e.g. `http://192.168.1.20:8080` |
+| `secret_key` | `SERVLY_SECRET_KEY` | - | empty: online payments off. 32 random bytes, base64 (`openssl rand -base64 32`), that encrypt payment provider credentials. Keep it with your backups: without it, connected providers must be connected again |
+| `payments.sandbox` | `SERVLY_PAYMENTS_SANDBOX` | - | `false`; `true` offers a fake payment provider for demos and tests. Never for real guests |
 
 The config file is optional. servly reads the first file it finds among `--config`, `$SERVLY_CONFIG`, `~/.config/servly-io/servly.yaml` and `/etc/servly-io/servly.yaml`. An unknown key in the file is an error, so typos do not pass silently.
 
@@ -125,6 +127,7 @@ Downgrading a binary below the schema version is not supported. Restore the back
 ## Network and offline operation
 
 * Nothing in the order flow calls the internet. The binary embeds the frontend, fonts, timezone data and QR generation.
+* Online payments (optional) do need the internet: servly talks to the payment provider, and the guest's phone opens its payment page. Without a connection, guests pay staff as usual, and open payments are confirmed once the connection is back. Webhooks need servly reachable from the internet over HTTPS. Without them, servly checks open payments every few seconds, which is enough.
 * Plain HTTP on a LAN means anyone on that network can watch staff sessions. Put staff devices on a separate network from guest Wi-Fi, or terminate TLS in a reverse proxy with a local certificate.
 * If the connection drops, the staff board shows it and reloads the state when the connection returns. Orders are safe as soon as the customer sees the confirmation.
 

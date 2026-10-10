@@ -118,6 +118,20 @@ A pickup point works like a table, but the guest collects the order at the count
 
 The **pickup screen** (the screen icon on the board, `/staff/display`) is meant for a TV or tablet facing the guests. Sign it in with a staff account and open it in full screen. It shows order numbers only: **Being prepared** and **Ready to collect**.
 
+## Optional: online payments
+
+Guests can pay on their phone: cards, Apple Pay and Google Pay, and the methods your country uses most. The person who runs the server first sets a secret key (`SERVLY_SECRET_KEY`, see [Local deployment](local-deployment.md#configuration)). Then, under **Payments**:
+
+1. Pick the country. servly lists the payment providers that serve it, the recommended one first ([which and why](payments.md)).
+2. Connect the provider with a restricted key from its dashboard. Start with a test key.
+3. Choose when guests pay:
+   * **Tables:** from the phone when finished, when ordering, or only through staff.
+   * **Pickup points:** when ordering, guest's choice, or at the counter.
+4. Place a test order and pay it with one of the provider's test cards. On the board it shows as **Paid**, and the order shows "Online · Visa •••• 4242".
+5. Reconnect with the live key.
+
+With "pay when ordering", the order reaches the kitchen only once it is paid. With "when finished", the order page shows **Pay now**, and the board's **To pay** view clears by itself. `make demo` sets all of this up with a built-in sandbox: the checkout page is fake and takes no money.
+
 ## 10. Set up backups
 
 Before the first busy evening, follow [Backup and restore](backup-restore.md) and run one restore test.

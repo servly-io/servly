@@ -61,13 +61,23 @@ Required tests for every tenant-owned endpoint: read, update and delete another 
 
 * The request log records method, path, status, size, duration and request id. It never records bodies, cookies, query strings, `Authorization` headers or tokens.
 * Never logged: passwords, session tokens, CSRF tokens, database URLs with credentials, or payment references. The one exception is the first-run setup token. It is logged on purpose, only while the installation is not set up, and it is useless after setup.
-* `servly config view` redacts passwords in connection URLs.
+* `servly config view` redacts passwords in connection URLs and shows `secret_key` only as `REDACTED`.
 * Errors that are not `apperr` errors reach the client only as `internal_error` with a request id.
 * Secrets come from the environment or a root-readable file, such as `EnvironmentFile=/etc/servly-io/servly.env` with mode `0600`. They never live in Git.
 
 ## Payment data
 
-servly records that a payment happened. It never handles card data: there are no fields for card number, expiry or CVC. The free-text `reference` is labelled "terminal receipt number" in the UI. Marking a payment as paid is a staff statement, and servly does not verify it with the terminal.
+servly records that a payment happened. It never handles card data: there are no fields for card number, expiry or CVC. The free-text `reference` is labelled "terminal receipt number" in the UI. Marking a payment as paid by hand is a staff statement, and servly does not verify it with the terminal.
+
+### Online payments
+
+* **Card data:** guests pay on the provider's hosted page, so card data never passes through servly (PCI DSS SAQ A). servly stores only a display detail such as "Visa •••• 4242".
+* **Credentials:** provider keys are sealed with AES-256-GCM before they are stored. The key is the operator's `secret_key`, which is never in the database. Keys are write-only in the API and UI and are never logged. The wizard asks for a restricted key with only the permissions servly needs. Losing `secret_key` means connecting the provider again; it does not expose anything.
+* **What counts as paid:** only the provider's own answer, read with the restaurant's key, or a webhook verified with its signing secret within a 5-minute window. The amount and currency must match what servly asked for. A mismatch is not applied and is written to the audit log (`payment.online_mismatch`). The guest's return to `/pay/…` triggers a check; it proves nothing by itself.
+* **Exactly once:** unique indexes on the provider's payment ID and on the checkout, plus a claim on the checkout row inside the settling transaction, keep a payment from being recorded twice when webhooks, the reconciler and the guest's page race. Webhook event IDs are recorded and deduplicated.
+* **Webhooks** are public and unauthenticated by design. They are trusted only after signature verification with the named account's own secret. Unknown accounts and bad signatures get the same `422`, the body is limited to 64 KiB, and an event can only settle a checkout of the account whose secret signed it.
+* **Pay first is enforced on the server:** where a dining location requires payment when ordering, `POST /api/public/orders` is refused.
+* **Audit:** connecting, changing, disconnecting, online payments and mismatches are recorded in `audit_events`.
 
 ## Transport
 

@@ -52,7 +52,10 @@ erDiagram
 | `order_items` | lines; name and prices snapshotted | yes |
 | `order_item_options` | chosen options; names and deltas snapshotted | yes |
 | `order_status_events` | every status change: from, to, actor, reason, time | yes |
-| `payments` | recorded payments: method, status, amount, refunded, reference | yes |
+| `payments` | recorded payments: method (`cash`, `external_terminal`, `other`, `online`), status, amount, refunded, reference; for online payments also provider, provider payment ID, checkout and display detail | yes |
+| `payment_accounts` | a location's connected payment provider: provider, test/live, account name, when guests pay, sealed credentials, status | yes |
+| `payment_checkouts` | hosted payment attempts: a bill for an order or a priced cart (prepay), amount, provider reference, status, the reconciler's schedule | yes |
+| `payment_events` | provider webhook events received, for deduplication | yes |
 | `audit_events` | privileged and manual changes: actor, action, entity, JSON data | yes (nullable for platform events) |
 | `idempotency_records` | (tenant, scope, key) → created order and request hash | yes |
 | `installation` | one row (`id = 1`) once the first restaurant exists; closes the first-run setup | no |
