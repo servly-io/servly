@@ -42,14 +42,14 @@ export function PickupDisplay() {
           <ul className="display-nums">
             {preparing.map((o) => <li key={o.id}>{o.number}</li>)}
           </ul>
-          {preparing.length === 0 && <p className="display-empty">–</p>}
+          {preparing.length === 0 && <p className="display-empty">-</p>}
         </section>
         <section aria-labelledby="d-ready" className="display-ready">
           <h2 id="d-ready"><Icon name="bag" size={28} />Ready to collect</h2>
           <ul className="display-nums" aria-live="polite">
             {ready.map((o) => <li key={o.id} className={fresh.has(o.id) ? 'fresh' : ''}>{o.number}</li>)}
           </ul>
-          {ready.length === 0 && <p className="display-empty">–</p>}
+          {ready.length === 0 && <p className="display-empty">-</p>}
         </section>
       </div>
     </main>

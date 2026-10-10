@@ -138,7 +138,7 @@ export function SetupPage() {
                 <span className="dot" />
                 {t.label}
               </span>
-              <span className="stat-value">{live.orders ? t.count : '–'}</span>
+              <span className="stat-value">{live.orders ? t.count : '-'}</span>
             </Link>
           ))}
         </div>
