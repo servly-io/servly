@@ -86,6 +86,7 @@ func NewHandler(d Deps) http.Handler {
 			return
 		}
 		r.Route("/auth", s.authRoutes)
+		r.Route("/public", s.publicRoutes)
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(s.authenticated, s.csrf, s.requireTenant)
 			s.adminRoutes(r)
@@ -105,6 +106,13 @@ func (s *server) adminRoutes(r chi.Router) {
 	s.settingsRoutes(r)
 	s.menuRoutes(r)
 	s.diningRoutes(r)
+	s.assetRoutes(r)
+}
+
+// publicRoutes registers the guest API: no session, the token in the path is
+// the access check.
+func (s *server) publicRoutes(r chi.Router) {
+	r.Get("/assets/{id}", s.publicAsset)
 }
 
 // NewServer wraps a handler in an http.Server with conservative timeouts.

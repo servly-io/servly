@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/servly-io/servly/internal/app"
 	"github.com/servly-io/servly/internal/platform/database"
 	"github.com/servly-io/servly/internal/platform/database/dbtest"
+	"github.com/servly-io/servly/internal/storage"
 )
 
 // env is a server on a fresh database with one restaurant, "roma", owned by
@@ -32,6 +34,7 @@ const annaPW = "correct horse battery"
 func newEnv(t *testing.T, db *database.DB, mod ...func(*Deps)) *env {
 	t.Helper()
 	e := &env{t: t, db: db, app: app.New(db, quiet), now: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)}
+	e.app.Files = storage.NewLocal(t.TempDir())
 	d := Deps{Log: quiet, App: e.app, Now: func() time.Time { return e.now }}
 	for _, m := range mod {
 		m(&d)
@@ -149,6 +152,28 @@ func (c *client) doRaw(method, path, body string) resp {
 	if c.csrf != "" {
 		req.Header.Set("X-CSRF-Token", c.csrf)
 	}
+	rec := httptest.NewRecorder()
+	c.e.h.ServeHTTP(rec, req)
+	return resp{rec}
+}
+
+// upload posts body as the multipart field "file".
+func (c *client) upload(field string, body []byte) resp {
+	c.e.t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, err := mw.CreateFormFile(field, "photo.png")
+	if err != nil {
+		c.e.t.Fatal(err)
+	}
+	_, _ = fw.Write(body)
+	_ = mw.Close()
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/assets", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if c.cookie != nil {
+		req.AddCookie(c.cookie)
+	}
+	req.Header.Set("X-CSRF-Token", c.csrf)
 	rec := httptest.NewRecorder()
 	c.e.h.ServeHTTP(rec, req)
 	return resp{rec}

@@ -5,7 +5,7 @@ title: API
 
 This page is the HTTP contract between the server, the web app and any other client. MASTER_PLAN.md §9 proposed the starting paths; this page is now authoritative, and [Changes from the plan](#changes-from-the-plan) lists where it departs from §9. Agents implement against this page. Change the page first, in the same change set as the code.
 
-Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) (without asset upload), [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points).
+Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) with image upload, [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points).
 
 ## Conventions
 
@@ -48,7 +48,7 @@ Every error has one shape:
 | 429 | - | `rate_limited`, with `Retry-After` |
 | 500 | - | `internal_error`; details are logged, never returned |
 
-Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`. A new code goes into this list in the same change.
+Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`, `file_required`, `unsupported_media_type`, `asset_too_large`. A new code goes into this list in the same change.
 
 ## Authentication and tenant context
 
@@ -173,7 +173,7 @@ Returns the same body as order creation. It contains no internal ids, no staff i
 
 ### `GET /api/public/assets/{id}`
 
-Serves a menu image of an enabled item. Served with `Content-Type` from the stored type and `X-Content-Type-Options: nosniff`.
+Serves an image that a non-archived menu item uses; an upload no item uses is `404`. Served with the stored `Content-Type`, `X-Content-Type-Options: nosniff`, `Content-Disposition: inline` and a sandboxing `Content-Security-Policy`.
 
 ## Staff API: orders
 
@@ -270,7 +270,8 @@ Permission `menu.manage` for writes. Every member may read.
 | `PATCH /api/admin/menu/items/{id}` | partial; when present, `option_groups` is the complete new list: a group or option with its `id` is updated and keeps the id, one without `id` is added, one left out is removed (archived, as past orders may reference it). An `id` from another item is `404` |
 | `POST /api/admin/menu/items/{id}/duplicate` | copy named "… (copy)", disabled |
 | `DELETE /api/admin/menu/items/{id}` | `204`; archives instead when an order references the item, and `200 {"archived": true}` says so |
-| `POST /api/admin/assets` | `multipart/form-data` field `file`; JPEG, PNG or WebP up to 5 MiB, checked by content; returns `{id, url}` |
+| `POST /api/admin/assets` | `multipart/form-data` field `file`; JPEG, PNG or WebP up to 5 MiB, the type detected from the content; returns `{id, url, admin_url, content_type, size_bytes}`. Set `image_asset_id` on an item to show it; `null` removes it |
+| `GET /api/admin/assets/{id}` | the image, attached or not, for previews in the admin UI |
 
 Item body:
 

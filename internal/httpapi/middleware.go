@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -57,11 +58,19 @@ func recoverer(log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// maxBody caps the request body
+// maxBody caps the request body by route: 64 KiB on the public API, the
+// upload size for asset uploads, n otherwise.
 func maxBody(n int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Body = http.MaxBytesReader(w, r.Body, n)
+			limit := n
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/api/public/"):
+				limit = publicMaxBodyBytes
+			case r.URL.Path == "/api/admin/assets" && r.Method == http.MethodPost:
+				limit = uploadMaxBodyBytes
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 			next.ServeHTTP(w, r)
 		})
 	}

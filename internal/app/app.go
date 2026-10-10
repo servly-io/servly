@@ -8,12 +8,15 @@ import (
 	"log/slog"
 
 	"github.com/servly-io/servly/internal/platform/database"
+	"github.com/servly-io/servly/internal/storage"
 )
 
 // App holds what the use cases share.
 type App struct {
 	DB  *database.DB
 	Log *slog.Logger
+	// Files stores uploaded assets; nil disables uploads.
+	Files *storage.Local
 }
 
 func New(db *database.DB, log *slog.Logger) *App { return &App{DB: db, Log: log} }

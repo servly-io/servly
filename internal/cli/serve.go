@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/servly-io/servly/internal/app"
 	"github.com/servly-io/servly/internal/httpapi"
+	"github.com/servly-io/servly/internal/storage"
 	"github.com/servly-io/servly/web"
 )
 
@@ -67,6 +69,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 	}
 
 	application := app.New(db, log)
+	application.Files = storage.NewLocal(filepath.Join(cfg.DataDir, "assets"))
 	go application.RunMaintenance(ctx, time.Hour)
 
 	handler := httpapi.NewHandler(httpapi.Deps{

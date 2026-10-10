@@ -97,7 +97,7 @@ servly config view   # the resolved settings, passwords redacted
 ├── servly.db        SQLite database (WAL mode)
 ├── servly.db-wal    write-ahead log: part of the database, never delete it
 ├── servly.db-shm
-└── assets/          uploaded images (Phase 2)
+└── assets/          uploaded images, one directory per restaurant
 ```
 
 Back up the database and `assets/` together. See [Backup and restore](backup-restore.md).
