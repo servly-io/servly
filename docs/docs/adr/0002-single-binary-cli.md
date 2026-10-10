@@ -7,12 +7,12 @@ title: "0002: One binary, cobra and viper"
 
 ## Context
 
-MASTER_PLAN.md §4 suggests `cmd/server` and `cmd/migrate`, and allows adjusting the layout. Local operators install one file and one systemd unit. The plan also asks for environment-based configuration. The sibling project podcd established a cobra-based CLI with a config-file lookup chain, and operators know that style.
+MASTER_PLAN.md §4 suggests `cmd/server` and `cmd/migrate`, and allows adjusting the layout. Local operators install one file and one systemd unit. The plan also asks for environment-based configuration.
 
 ## Decision
 
 * One binary, `servly`, built from `cmd/servly`, with commands `serve`, `migrate up|status`, `config path|view`, `version` and `options`. Later operator commands (`tenant create`, `backup`) join it.
-* **cobra** for commands and flags. The layout follows podcd: `internal/cli`, `cli.Main`, `cli.Version` set by ldflags, and a global `options` command.
+* **cobra** for commands and flags.
 * **viper** for configuration. Precedence: flag > `SERVLY_*` environment > YAML file > default. The file is optional. Lookup: `--config`, `$SERVLY_CONFIG`, `~/.config/servly-io/servly.yaml`, `/etc/servly-io/servly.yaml`.
 * Unknown keys in the file are errors. Booleans and log levels are parsed strictly, not with viper's lenient casting.
 
