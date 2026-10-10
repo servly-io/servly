@@ -9,6 +9,7 @@
 package money
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/servly-io/servly/internal/apperr"
@@ -74,4 +75,36 @@ func abs(a Amount) Amount {
 		return -a
 	}
 	return a
+}
+
+// Minor-unit digits per ISO 4217. The web client uses the browser's Intl
+// tables, which agree for every currency listed here.
+var (
+	zeroDecimal  = map[Currency]bool{"BIF": true, "CLP": true, "DJF": true, "GNF": true, "ISK": true, "JPY": true, "KMF": true, "KRW": true, "PYG": true, "RWF": true, "UGX": true, "VND": true, "VUV": true, "XAF": true, "XOF": true, "XPF": true}
+	threeDecimal = map[Currency]bool{"BHD": true, "IQD": true, "JOD": true, "KWD": true, "LYD": true, "OMR": true, "TND": true}
+)
+
+// Digits is the number of minor-unit digits of a currency: 2 for EUR, 0 for JPY.
+func Digits(c Currency) int {
+	switch {
+	case zeroDecimal[c]:
+		return 0
+	case threeDecimal[c]:
+		return 3
+	}
+	return 2
+}
+
+// Format renders an amount for people, such as "24.50 EUR". Display only.
+func Format(a Amount, c Currency) string {
+	d := Digits(c)
+	sign := ""
+	if a < 0 {
+		sign, a = "-", -a
+	}
+	if d == 0 {
+		return fmt.Sprintf("%s%d %s", sign, a, c)
+	}
+	p := Amount(math.Pow10(d))
+	return fmt.Sprintf("%s%d.%0*d %s", sign, a/p, d, a%p, c)
 }

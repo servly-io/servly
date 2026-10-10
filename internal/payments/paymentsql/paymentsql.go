@@ -18,12 +18,13 @@ var _ payments.Repository = (*Store)(nil)
 
 func New(q database.Querier) *Store { return &Store{q: q} }
 
-const cols = `id, tenant_id, order_id, method, status, amount_minor, refunded_minor, currency, reference, recorded_by_user_id, created_at, updated_at`
+const cols = `id, tenant_id, order_id, method, status, amount_minor, refunded_minor, currency, reference, recorded_by_user_id,
+	provider, provider_ref, checkout_id, detail, created_at, updated_at`
 
 func scan(row interface{ Scan(...any) error }) (*payments.Payment, error) {
 	var p payments.Payment
 	err := row.Scan(&p.ID, &p.TenantID, &p.OrderID, &p.Method, &p.Status, &p.Amount, &p.Refunded, &p.Currency, &p.Reference,
-		&p.RecordedByUserID, &p.CreatedAt, &p.UpdatedAt)
+		&p.RecordedByUserID, &p.Provider, &p.ProviderRef, &p.CheckoutID, &p.Detail, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, payments.ErrNotFound
 	}
@@ -31,8 +32,9 @@ func scan(row interface{ Scan(...any) error }) (*payments.Payment, error) {
 }
 
 func (s *Store) Create(ctx context.Context, p *payments.Payment) error {
-	_, err := s.q.ExecContext(ctx, `INSERT INTO payments (`+cols+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		p.ID, p.TenantID, p.OrderID, p.Method, p.Status, p.Amount, p.Refunded, p.Currency, p.Reference, p.RecordedByUserID, p.CreatedAt, p.UpdatedAt)
+	_, err := s.q.ExecContext(ctx, `INSERT INTO payments (`+cols+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+		p.ID, p.TenantID, p.OrderID, p.Method, p.Status, p.Amount, p.Refunded, p.Currency, p.Reference, p.RecordedByUserID,
+		p.Provider, p.ProviderRef, p.CheckoutID, p.Detail, p.CreatedAt, p.UpdatedAt)
 	return err
 }
 

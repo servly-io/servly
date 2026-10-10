@@ -137,8 +137,14 @@ type Payment struct {
 	// Reference is free text such as a terminal receipt number.
 	Reference        string
 	RecordedByUserID uuid.NullUUID
-	CreatedAt        database.Timestamp
-	UpdatedAt        database.Timestamp
+	// Online payments only: the provider, its payment id, the checkout that
+	// took it, and how the guest paid ("Visa •••• 4242").
+	Provider    string
+	ProviderRef string
+	CheckoutID  uuid.NullUUID
+	Detail      string
+	CreatedAt   database.Timestamp
+	UpdatedAt   database.Timestamp
 }
 
 // ValidateNew checks a payment about to be recorded against an order with the

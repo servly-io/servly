@@ -20,7 +20,8 @@ var wantTables = []string{
 	"assets", "audit_events", "dining_locations", "idempotency_records", "installation",
 	"menu_categories", "menu_items", "option_groups", "options",
 	"order_item_options", "order_items", "order_number_counters",
-	"order_status_events", "orders", "payments", "restaurant_locations",
+	"order_status_events", "orders", "payment_accounts", "payment_checkouts", "payment_events",
+	"payments", "restaurant_locations",
 	"sessions", "tenant_domains", "tenant_memberships", "tenants", "users",
 }
 
