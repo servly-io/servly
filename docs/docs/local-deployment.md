@@ -24,6 +24,12 @@ podman run -d --name servly --restart=always \
 
 Docker works the same way. The image runs as a non-root user and keeps everything in `/data`. With a bind mount instead of a named volume, the host directory must be writable by uid 65532.
 
+### With Podman Desktop
+
+[`deploy/podman/servly.yaml`](https://github.com/servly-io/servly/blob/main/deploy/podman/servly.yaml) describes the same setup as a Kubernetes pod. In Podman Desktop, open **Pods**, then **Play Kubernetes YAML**, and paste the file. From a terminal, run `podman kube play deploy/podman/servly.yaml`.
+
+It uses a pinned image version, port 8080 on every network interface, the `servly-data` volume (the same one as above), and a read-only root filesystem. Set `SERVLY_HTTP_PUBLIC_BASE_URL` in the file to the address guests' phones use. `podman kube down deploy/podman/servly.yaml` stops it and keeps the data.
+
 ## Option B: binary and systemd
 
 ```bash

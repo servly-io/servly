@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { settingsApi } from '../api/admin';
+import { settingsApi, setupApi } from '../api/admin';
 import { ApiError } from '../api/client';
 import { CurrencySelect, TimezoneSelect } from '../shared/inputs';
 import { useSession } from '../shared/session';
@@ -66,6 +66,14 @@ export function SetupWizard() {
   const next = (e: React.FormEvent) => {
     e.preventDefault();
     act.setError(null);
+    if (step === 0) {
+      // Check the token now, not after the owner has filled in every step.
+      void act.run(async () => {
+        await setupApi.verify(f.setup_token);
+        go(1);
+      });
+      return;
+    }
     if (step === 1 && f.owner_password !== f.confirm) {
       act.setError(new Error('The two passwords are not the same.'));
       return;
@@ -228,7 +236,7 @@ export function SetupWizard() {
             <span />
           )}
           <button type="submit" className="btn btn-primary btn-large" disabled={act.busy}>
-            {step === 0 ? 'Get started' : step < steps.length - 1 ? 'Continue' : act.busy ? 'Creating…' : 'Create restaurant'}
+            {step === 0 ? (act.busy ? 'Checking…' : 'Get started') : step < steps.length - 1 ? 'Continue' : act.busy ? 'Creating…' : 'Create restaurant'}
           </button>
         </div>
       </form>

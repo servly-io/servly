@@ -40,15 +40,8 @@ func (a *App) SetupRequired(ctx context.Context) (bool, error) {
 // and signs the owner in. Only one call ever succeeds; every later one fails
 // with ErrSetupComplete.
 func (a *App) CompleteSetup(ctx context.Context, token string, in CreateTenantInput, now time.Time) (*Principal, string, error) {
-	required, err := a.SetupRequired(ctx)
-	if err != nil {
+	if err := a.CheckSetupToken(ctx, token); err != nil {
 		return nil, "", err
-	}
-	if !required {
-		return nil, "", ErrSetupComplete
-	}
-	if a.SetupToken == "" || subtle.ConstantTimeCompare([]byte(normalizeSetupToken(token)), []byte(a.SetupToken)) != 1 {
-		return nil, "", ErrSetupTokenInvalid
 	}
 	res, err := a.createTenant(ctx, in, true)
 	if err != nil {
@@ -56,6 +49,23 @@ func (a *App) CompleteSetup(ctx context.Context, token string, in CreateTenantIn
 	}
 	a.Log.InfoContext(ctx, "installation set up in the browser", "tenant_id", res.Tenant.ID, "owner_id", res.Owner.ID)
 	return a.Login(ctx, in.OwnerEmail, in.OwnerPassword, now)
+}
+
+// CheckSetupToken reports whether token would claim the installation now:
+// ErrSetupComplete once it is set up, ErrSetupTokenInvalid for a wrong token.
+// The wizard asks on its first step; CompleteSetup asks again.
+func (a *App) CheckSetupToken(ctx context.Context, token string) error {
+	required, err := a.SetupRequired(ctx)
+	if err != nil {
+		return err
+	}
+	if !required {
+		return ErrSetupComplete
+	}
+	if a.SetupToken == "" || subtle.ConstantTimeCompare([]byte(normalizeSetupToken(token)), []byte(a.SetupToken)) != 1 {
+		return ErrSetupTokenInvalid
+	}
+	return nil
 }
 
 func normalizeSetupToken(t string) string {

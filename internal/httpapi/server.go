@@ -92,6 +92,7 @@ func NewHandler(d Deps) http.Handler {
 		}
 		r.Get("/setup", s.setupStatus)
 		r.Post("/setup", s.completeSetup)
+		r.Post("/setup/verify", s.verifySetupToken)
 		r.Route("/auth", s.authRoutes)
 		r.Route("/public", s.publicRoutes)
 		r.Route("/admin", func(r chi.Router) {

@@ -24,6 +24,7 @@ export const auth = {
 
 export const setupApi = {
   status: () => api<{ required: boolean }>('GET', '/api/setup'),
+  verify: (setup_token: string) => api<void>('POST', '/api/setup/verify', { body: { setup_token } }),
   complete: (body: SetupInput) => api<Session>('POST', '/api/setup', { body }),
 };
 

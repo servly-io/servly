@@ -8,7 +8,7 @@ const sidebars = {
       type: 'category',
       label: 'Design',
       collapsed: false,
-      items: ['architecture', 'domain-model', 'api', 'security'],
+      items: ['architecture', 'domain-model', 'api', 'security', 'payments'],
     },
     {
       type: 'category',
@@ -27,6 +27,7 @@ const sidebars = {
         'adr/0004-tenant-context-and-roles',
         'adr/0005-first-run-setup',
         'adr/0006-cli-scope',
+        'adr/0007-online-payments',
       ],
     },
     {

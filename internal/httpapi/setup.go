@@ -18,6 +18,28 @@ func (s *server) setupStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"required": required})
 }
 
+// verifySetupToken lets the wizard check the token on its first step, before
+// the owner fills in the rest. 204 when it is right.
+func (s *server) verifySetupToken(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SetupToken string `json:"setup_token"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	// The same limiter as the claim itself: this endpoint must not make guessing cheaper.
+	if !s.loginPerIP.allow(s.clientIP(r)) {
+		s.limited(w, r, s.loginPerIP)
+		return
+	}
+	if err := s.App.CheckSetupToken(r.Context(), req.SetupToken); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type setupRequest struct {
 	SetupToken     string `json:"setup_token"`
 	RestaurantName string `json:"restaurant_name"`

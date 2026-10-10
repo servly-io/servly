@@ -332,6 +332,10 @@ On a managed platform, the operator provisions tenants with `servly tenant creat
 
 `200 {"required": true|false}`. `required` stays true until the first restaurant exists. No session is needed.
 
+### `POST /api/setup/verify`
+
+`{"setup_token": "…"}`. Checks the token without creating anything, so the wizard can reject a wrong one on its first step. It answers `204` when the token is right, `403 setup_token_invalid` when it is wrong, `409 setup_complete` once the installation is set up, and `429` beyond the per-IP sign-in limit. The token is checked again by `POST /api/setup`.
+
 ### `POST /api/setup`
 
 ```json

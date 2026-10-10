@@ -91,8 +91,8 @@ The product must be designed for agentic implementation: clear boundaries, expli
 
 Do not implement these unless the product owner explicitly changes this document:
 
-* Native Android, iOS, Windows, or macOS applications.
-* Online payment processing.
+* Native Android, iOS, Windows, or macOS applications. (A Tap to Pay counter app is considered in Phase 7.6 and needs its own decision record.)
+* Online payment processing in the MVP. It follows as Phase 7 (§8.1, ADR 0007).
 * Fiscal cash-register replacement or TSE integration.
 * Inventory, purchasing, and supplier management.
 * Delivery fleet management.
@@ -414,7 +414,7 @@ The initial domain model includes:
 ### Payments
 
 * `payments`
-* `payment_events`, if required by the selected payment implementation
+* `payment_accounts`, `payment_checkouts`, `payment_events`, `payment_readers` (Phase 7, §8.1)
 
 ### Operations
 
@@ -473,6 +473,15 @@ Requirements:
 
 Do not assume that every restaurant needs every intermediate state. However, the MVP must have one documented, predictable workflow.
 
+Phase 7 adds one state before `new` for orders that are paid when ordering (ADR 0007):
+
+```
+awaiting_payment -> new         (payment confirmed by the provider)
+awaiting_payment -> cancelled   (checkout expired or failed)
+```
+
+The kitchen never sees `awaiting_payment` orders. Orders paid after serving do not use this state.
+
 ---
 
 ## 8. Payment architecture
@@ -503,9 +512,59 @@ Requirements:
 * Do not store card numbers, security codes, or sensitive payment credentials.
 * Do not pretend that manual marking verifies an external terminal transaction.
 
-Future online payment integration must use a provider adapter, hosted checkout where possible, verified provider notifications, and idempotent payment processing.
-
 Fiscal and cash-register compliance must be assessed separately before positioning the product as a replacement for a POS system.
+
+### 8.1 Online payments (Phase 7)
+
+Online payments go through established payment providers, following their recommended integrations. servly does not build a payment stack. The decision is ADR 0007, and the full design is `docs/docs/payments.md`. This section is the binding summary.
+
+**Principles**
+
+1. Hosted checkout pages and server-driven card readers only. servly never handles card data (PCI DSS SAQ A).
+2. A payment is settled only from the provider's API or a verified webhook, with amount and currency checked against the order, in one idempotent transaction. A guest returning from checkout proves nothing.
+3. A reconciler polls open checkouts, so local installs without a public address work. Webhooks make results faster where they can arrive.
+4. One adapter per provider (`internal/payments/provider`), not per payment method. The adapter translates only; rules, idempotency and state changes stay in the application layer. Each adapter owns its minor-unit conversion per currency.
+5. The restaurant is the merchant and connects its own provider account. servly never holds funds.
+6. Manual payment methods remain available, also offline.
+
+**What to support first, by market** (most widely used methods first)
+
+| Market | Methods, in order | Recommended provider | Alternatives |
+|---|---|---|---|
+| Indonesia | QRIS, e-wallets (GoPay, OVO, DANA, ShopeePay), virtual accounts, cards | Xendit | Midtrans |
+| Singapore | cards with Apple Pay and Google Pay, PayNow, GrabPay | Stripe | HitPay, Adyen |
+| Malaysia | DuitNow QR, e-wallets (Touch 'n Go, GrabPay, ShopeePay, Boost), cards, FPX | HitPay | Stripe (no DuitNow), Fiuu, Xendit |
+| EU | cards with Apple Pay and Google Pay, iDEAL / Wero, Bancontact, BLIK, PayPal | Stripe | Mollie, Adyen; SumUp for readers |
+| US | cards with Apple Pay and Google Pay, tips, PayPal and Venmo, Cash App Pay | Stripe | Square, PayPal |
+
+Adapters are built in this order: **Stripe, Xendit, HitPay, PayPal**. Mollie, Adyen, Midtrans, Square, SumUp and Fiuu follow demand.
+
+**Connecting.** Self-hosted installs connect with the restaurant's own restricted API keys. The managed cloud uses the providers' hosted platform onboarding: Stripe Connect Standard with Account Links, Xendit xenPlatform, PayPal partner onboarding. Provider credentials are encrypted at rest (AES-256-GCM, key from `SERVLY_SECRET_KEY`), write-only, and never logged.
+
+**Setup wizard** (Settings → Payments), one decision per step, resumable:
+1. country, suggested from the currency and timezone;
+2. a provider, ranked for that country, with the recommended one first;
+3. connect: test mode first;
+4. payment methods the account can accept, with the recommended ones on;
+5. when guests pay, for tables and for pickup points, and tips where the locale expects them;
+6. optional card readers and in-person QR;
+7. a test payment and the go-live checklist.
+
+**Guest flows.**
+* **Tables:** pay from the phone when finished (default).
+* **Pickup:** pay when ordering (default once online payments work), using `awaiting_payment` with an expiry.
+* On phones, QR methods use the provider's app-switch flow. The checkout page uses the guest's language.
+
+**Staff flows.**
+* "Charge on reader": server-driven readers such as Stripe smart readers and SumUp Solo through its Cloud API.
+* "Show payment QR": a dynamic QRIS, PayNow or DuitNow code on the staff screen.
+* Refunds through the provider.
+* Tap to Pay on phones requires a native app with the provider's SDK. It is Phase 7.6 and needs its own decision record.
+
+**Dependencies and limits.**
+* Markets that add charges at the bill (service charge and GST in SG, service charge and service tax in MY, service charge and PB1/PBJT in ID, sales tax and tips in the US) need the order-charges feature (Phase 7.0) before online payments launch there.
+* Online payments need internet; the board and manual payments do not.
+* Fiscal obligations (TSE, RKSV, e-invoicing) remain outside servly.
 
 ---
 
@@ -544,6 +603,14 @@ Initial endpoint contract:
 * `GET /api/admin/locations`
 * `POST /api/admin/locations`
 * `GET /api/admin/locations/{id}/qr`
+
+### Payments (Phase 7)
+
+* `GET /api/admin/payments/catalog`
+* `POST /api/admin/payment-accounts`, `GET`/`PATCH`/`DELETE /api/admin/payment-accounts/{id}`, `POST /api/admin/payment-accounts/{id}/test`
+* `POST /api/admin/orders/{id}/payments/reader`, `POST /api/admin/orders/{id}/payments/qr`
+* `POST /api/public/orders/{orderToken}/checkout`
+* `POST /api/payments/webhooks/{provider}/{accountId}`
 
 ### Access and health
 
@@ -610,6 +677,7 @@ Use a single responsive React/TypeScript application with distinct customer, sta
 * Reordering through accessible drag-and-drop or equivalent controls.
 * QR generation and printable output.
 * Clear validation errors and unsaved-change handling.
+* Phase 7: a payments setup wizard that ranks providers and methods for the restaurant's country (§8.1).
 
 ### Frontend quality
 
@@ -664,6 +732,15 @@ Security must be considered in every implementation phase.
 * The installation state is stored in the database. It is not inferred from whether users exist.
 * After setup, the setup endpoint is closed permanently. Recovery uses authenticated settings or a deliberate operator procedure.
 * Never ship default administrator passwords.
+
+### Payments (Phase 7)
+
+* Never accept, log, or store card numbers or security codes; use hosted pages and server-driven readers.
+* Encrypt provider credentials at rest and never return them in full.
+* Verify webhook signatures and timestamps, deduplicate events by provider event ID, and check amount and currency against the order.
+* Rate-limit and size-limit checkout and webhook endpoints.
+* Scope every payment account, checkout and event to its tenant. A webhook must match the account its path names.
+* Audit connects, disconnects, method changes, going live, refunds, and reader pairing.
 
 ### Authorization
 
@@ -998,6 +1075,59 @@ Exit criteria:
 
 Do not add subscription billing or automated provisioning until the operational model is proven.
 
+### Phase 7 - Payment integrations
+
+Design: §8.1, ADR 0007, `docs/docs/payments.md`. Each step ships on its own and is usable on its own.
+
+**7.0 - Contracts and prerequisites**
+
+* The adapter interface, the provider and method catalog per country, the data model (`payment_accounts`, `payment_checkouts`, `payment_events`, `payment_readers`, provider columns on `payments`), and credential encryption.
+* The `awaiting_payment` order state and its transitions.
+* The reconciler: polling with backoff, restart-safe, safe with two processes.
+* Order charges (service charge and taxes per location), required before SG, MY, ID and US launches.
+
+**7.1 - Stripe, own keys**
+
+* Wizard steps 1-5 and 7.
+* Tables pay when finished; pickup pays when ordering.
+* Webhooks and polling; refunds through the provider.
+* Markets: EU, US and SG; MY for cards, FPX and GrabPay.
+
+**7.2 - Xendit**
+
+* QRIS, Indonesian e-wallets and virtual accounts.
+* Dynamic QR on the staff screen ("Show payment QR").
+* Markets: ID; MY as an alternative.
+
+**7.3 - HitPay**
+
+* DuitNow QR, FPX and Malaysian e-wallets; PayNow.
+* Markets: MY and SG.
+
+**7.4 - Card readers**
+
+* Server-driven readers: Stripe smart readers and SumUp Solo through its Cloud API. Wizard step 6.
+
+**7.5 - Managed cloud and PayPal**
+
+* Platform connect: Stripe Connect Standard with Account Links, Xendit xenPlatform, PayPal partner onboarding.
+* The PayPal adapter (PayPal, and Venmo in the US).
+
+**7.6 - Later, each with its own decision**
+
+* A native "servly Counter" app for Tap to Pay on iPhone and Android.
+* Tips beyond presets, split bills, and further adapters (Mollie, Adyen, Midtrans, Square, Fiuu) as restaurants ask for them.
+
+Exit criteria (for every step that adds an adapter):
+
+* A test payment completes end to end, with the provider's sandbox, for every method the step lists.
+* A paid order is marked paid exactly once, whether the webhook, the reconciler or both deliver the result, and also after a restart in between.
+* A forged or replayed webhook, a wrong amount, a wrong currency, and another tenant's account are all rejected.
+* An unpaid prepaid order expires, never reaches the kitchen, and a late payment for it is refunded automatically.
+* A full and a partial refund through the provider update the order's payment status.
+* No card data or credentials appear in logs, API responses, or exports.
+* A local install without a public address settles payments by polling alone.
+
 ---
 
 ## 16. Testing strategy
@@ -1049,6 +1179,15 @@ Every phase must add automated tests at the appropriate level.
 * Invalid state transitions.
 * Session and CSRF behavior.
 * Asset access and path traversal.
+
+### Payment tests (Phase 7)
+
+* Adapter contract tests against recorded provider responses, per adapter.
+* Minor-unit conversion per adapter and currency, including IDR and zero-decimal currencies.
+* Webhook signature, timestamp tolerance, and deduplication.
+* Webhook and reconciler racing on the same checkout.
+* Expiry of `awaiting_payment` orders and refund of late payments.
+* Sandbox end-to-end runs, kept out of the default test run behind an environment variable.
 
 ### Reliability tests
 
@@ -1134,6 +1273,7 @@ The repository must contain:
 * `docs/docs/local-deployment.md` - self-hosted setup and recovery.
 * `docs/docs/cloud-deployment.md` - managed deployment architecture.
 * `docs/docs/backup-restore.md` - backup, restore, and data-loss considerations.
+* `docs/docs/payments.md` - payment providers, markets, flows, and security (Phase 7).
 * `docs/docs/adr/` - architecture decision records.
 
 The documentation is a Docusaurus site (`docs/`), published to GitHub Pages. See ADR 0003.

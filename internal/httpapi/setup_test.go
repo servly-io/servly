@@ -20,6 +20,12 @@ func TestFirstRunSetup(t *testing.T) {
 	if r := c.do(http.MethodGet, "/api/setup", nil); r.Code != http.StatusOK || r.json(t)["required"] != true {
 		t.Fatalf("status: %d %s", r.Code, r.Body.String())
 	}
+	if r := c.do(http.MethodPost, "/api/setup/verify", map[string]string{"setup_token": "wrong"}); r.Code != http.StatusForbidden || r.code() != "setup_token_invalid" {
+		t.Fatalf("verify wrong token: %d %s", r.Code, r.Body.String())
+	}
+	if r := c.do(http.MethodPost, "/api/setup/verify", map[string]string{"setup_token": " 0A1B2-C3D4E-5F6A7-B8C9D "}); r.Code != http.StatusNoContent {
+		t.Fatalf("verify right token: %d %s", r.Code, r.Body.String())
+	}
 	body := map[string]string{
 		"setup_token": "wrong", "restaurant_name": "Trattoria Roma", "currency": "EUR", "timezone": "Europe/Berlin",
 		"owner_name": "Anna", "owner_email": "anna@example.com", "owner_password": annaPW,
@@ -44,5 +50,8 @@ func TestFirstRunSetup(t *testing.T) {
 	}
 	if r := e.client().do(http.MethodPost, "/api/setup", body); r.Code != http.StatusConflict || r.code() != "setup_complete" {
 		t.Fatalf("second setup: %d %s", r.Code, r.Body.String())
+	}
+	if r := e.client().do(http.MethodPost, "/api/setup/verify", map[string]string{"setup_token": e.app.SetupToken}); r.Code != http.StatusConflict || r.code() != "setup_complete" {
+		t.Fatalf("verify after setup: %d %s", r.Code, r.Body.String())
 	}
 }
