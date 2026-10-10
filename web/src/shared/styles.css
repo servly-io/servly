@@ -596,8 +596,10 @@ dialog { color: var(--fg); }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
 @media (min-width: 640px) { .sheet { margin: auto; border-radius: var(--r-xl); } }
 .sheet::backdrop { background: rgb(0 0 0 / 0.5); }
-.sheet-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-.sheet-body { overflow-y: auto; flex: 1; overscroll-behavior: contain; }
+/* flex-basis auto, not 0: the sheet has no fixed height, and Safari sizes it from
+ * the children's basis, so `flex: 1` collapsed it to 0 behind a grey backdrop. */
+.sheet-form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.sheet-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; }
 .sheet-hero { position: relative; }
 .sheet-hero img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
 .sheet-close { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; border: none; display: grid; place-items: center; background: var(--bg); color: var(--fg); box-shadow: 0 2px 8px rgb(0 0 0 / 0.2); cursor: pointer; z-index: 1; }
