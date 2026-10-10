@@ -94,10 +94,11 @@ The flow is: commit, then publish an event to the process-local broadcaster (`in
 | `/m/:token` | customer, from a table QR code | 3 |
 | `/o/:token` | customer, order status | 3 |
 | `/staff` | staff order board | 4 |
-| `/admin/*` | manager, owner | 2 |
+| `/admin/*` | members; editing needs the matching permission: setup checklist, menu, item editor, tables and QR print sheet, staff, settings | 2 |
 | `/login` | staff sign-in | 2 |
 
-* `web/src/api/client.ts` is the one way to call the API. It sends cookies and the CSRF header, and it turns error bodies into `ApiError`.
+* `web/src/api/client.ts` is the one way to call the API; `web/src/api/admin.ts` has one typed function per staff endpoint.
+* `web/src/shared/session.tsx` holds the session (`useSession`, `can(permission)`); `RequireSession` guards staff routes and offers the restaurant picker. It sends cookies and the CSRF header, and it turns error bodies into `ApiError`.
 * `web/src/api/types.ts` mirrors the wire types of [api.md](api.md).
 * Feature code lives in `customer/`, `staff/` and `admin/`. Shared components live in `shared/`.
 * `make build` builds the app into `web/dist`, and the Go binary embeds it. `/assets/*` (hashed) is cached for a year and `index.html` is never cached. Unknown paths serve `index.html` for client-side routing.

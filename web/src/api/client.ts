@@ -27,6 +27,8 @@ export function setCsrfToken(token: string | null): void {
 
 export interface RequestOptions {
   body?: unknown;
+  /** Multipart body (file upload); the browser sets the boundary. */
+  form?: FormData;
   /** Idempotency-Key header, required for POST /api/public/orders. */
   idempotencyKey?: string;
   signal?: AbortSignal;
@@ -35,7 +37,7 @@ export interface RequestOptions {
 /** Call the API. Resolves with the parsed JSON body, rejects with ApiError. */
 export async function api<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (opts.body !== undefined && !opts.form) headers['Content-Type'] = 'application/json';
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
   if (method !== 'GET' && method !== 'HEAD' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
@@ -45,7 +47,7 @@ export async function api<T>(method: string, path: string, opts: RequestOptions 
       method,
       headers,
       credentials: 'same-origin',
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.form ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
       signal: opts.signal,
     });
   } catch (err) {
