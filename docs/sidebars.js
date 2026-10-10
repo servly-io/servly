@@ -14,7 +14,7 @@ const sidebars = {
       type: 'category',
       label: 'Operations',
       collapsed: false,
-      items: ['local-deployment', 'cloud-deployment', 'backup-restore'],
+      items: ['setup', 'local-deployment', 'cloud-deployment', 'backup-restore'],
     },
     {
       type: 'category',
