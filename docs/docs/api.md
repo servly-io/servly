@@ -5,7 +5,7 @@ title: API
 
 This page is the HTTP contract between the server, the web app and any other client. MASTER_PLAN.md §9 proposed the starting paths; this page is now authoritative, and [Changes from the plan](#changes-from-the-plan) lists where it departs from §9. Agents implement against this page. Change the page first, in the same change set as the code.
 
-Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) (without asset upload), [settings and staff](#staff-api-restaurant-settings-and-staff).
+Status: **contract (Phase 0)**. Implemented so far: `/healthz`, `/readyz`, error format, request ids, body limit, [Auth](#auth) with CSRF, session tenant context and login rate limits, [menu](#staff-api-menu) (without asset upload), [settings and staff](#staff-api-restaurant-settings-and-staff), [dining locations and QR codes](#staff-api-dining-locations-tables-pickup-points).
 
 ## Conventions
 
@@ -48,7 +48,7 @@ Every error has one shape:
 | 429 | - | `rate_limited`, with `Retry-After` |
 | 500 | - | `internal_error`; details are logged, never returned |
 
-Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`. A new code goes into this list in the same change.
+Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`, `request_too_large`, `internal_error`, `invalid_currency`, `amount_out_of_range`, `menu_not_found`, `invalid_price`, `invalid_option_group`, `name_required`, `order_not_found`, `order_conflict`, `idempotency_key_reused`, `invalid_transition`, `reason_required`, `forbidden`, `payment_not_found`, `invalid_payment_transition`, `invalid_payment_status`, `invalid_payment_method`, `invalid_payment_amount`, `invalid_refund_amount`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `no_active_tenant`, `rate_limited`, `not_found`, `slug_taken`, `email_taken`, `already_member`, `invalid_slug`, `invalid_email`, `invalid_timezone`, `invalid_role`, `last_owner`, `currency_fixed`, `password_too_short`, `password_too_long`, `text_too_long`, `too_many_options`, `category_required`, `existing_user`, `shared_user`, `invalid_kind`. A new code goes into this list in the same change.
 
 ## Authentication and tenant context
 
@@ -291,11 +291,11 @@ Permission `dining_locations.manage` for writes.
 
 | | |
 |---|---|
-| `GET /api/admin/dining-locations` | all |
+| `GET /api/admin/dining-locations` | all; each `{id, name, kind, public_token, menu_url, is_enabled}` |
 | `POST /api/admin/dining-locations` | `{name, kind: "table"\|"pickup"}`; the server generates `public_token` |
 | `PATCH /api/admin/dining-locations/{id}` | `{name?, is_enabled?}` |
 | `POST /api/admin/dining-locations/{id}/rotate-token` | new token; old QR codes stop working |
-| `GET /api/admin/dining-locations/{id}/qr` | `image/svg+xml` QR code of `<public base URL>/m/<token>`; `?format=png` for PNG |
+| `GET /api/admin/dining-locations/{id}/qr` | `image/svg+xml` QR code of `menu_url` = `<public base URL>/m/<token>`, where the base is `http.public_base_url` or else the request's scheme and host; `?format=png` for PNG |
 
 ## Staff API: restaurant settings and staff
 

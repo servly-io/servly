@@ -104,6 +104,7 @@ func NewHandler(d Deps) http.Handler {
 func (s *server) adminRoutes(r chi.Router) {
 	s.settingsRoutes(r)
 	s.menuRoutes(r)
+	s.diningRoutes(r)
 }
 
 // NewServer wraps a handler in an http.Server with conservative timeouts.
