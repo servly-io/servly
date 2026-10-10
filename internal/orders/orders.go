@@ -119,7 +119,9 @@ type ListFilter struct {
 	LocationID uuid.UUID
 	Statuses   []Status // empty means all
 	Mode       Mode     // empty means all
-	Limit      int
+	// PaymentStatuses filters on the order's summarized payment status; empty means all.
+	PaymentStatuses []payments.Status
+	Limit           int
 	// Cursor continues a previous listing; empty starts at the newest order.
 	Cursor string
 }

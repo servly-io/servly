@@ -1,11 +1,12 @@
 // Typed calls of the staff order API (docs/docs/api.md#staff-api-orders).
 import { api } from './client';
-import type { MinorUnits, OrderDetail, OrderMode, OrderStatus, Page, PaymentMethod, StaffOrder } from './types';
+import type { MinorUnits, OrderDetail, OrderMode, OrderStatus, Page, PaymentMethod, PaymentStatus, StaffOrder } from './types';
 
 export const ordersApi = {
-  list: (q: { status?: OrderStatus[]; mode?: OrderMode; limit?: number; cursor?: string }) => {
+  list: (q: { status?: OrderStatus[]; payment?: PaymentStatus[]; mode?: OrderMode; limit?: number; cursor?: string }) => {
     const p = new URLSearchParams();
     q.status?.forEach((s) => p.append('status', s));
+    q.payment?.forEach((s) => p.append('payment_status', s));
     if (q.mode) p.set('mode', q.mode);
     if (q.limit) p.set('limit', String(q.limit));
     if (q.cursor) p.set('cursor', q.cursor);

@@ -251,7 +251,13 @@ func TestOrderListFilters(t *testing.T) {
 	if got := mustCode(t, s.owner.do(http.MethodGet, "/api/admin/orders?status=accepted&status=preparing", nil), http.StatusOK)["items"].([]any); len(got) != 1 {
 		t.Fatalf("status filter: %v", got)
 	}
-	for _, q := range []string{"?status=bogus", "?mode=delivery", "?limit=0", "?cursor=@@@"} {
+	mustCode(t, s.owner.do(http.MethodPost, "/api/admin/orders/"+first["id"].(string)+"/payments",
+		map[string]any{"method": "cash", "status": "paid", "amount_minor": first["total_minor"]}), http.StatusOK)
+	toPay := mustCode(t, s.owner.do(http.MethodGet, "/api/admin/orders?payment_status=unpaid&payment_status=pending", nil), http.StatusOK)["items"].([]any)
+	if len(toPay) != 3 {
+		t.Fatalf("payment filter: %d orders to pay, want 3", len(toPay))
+	}
+	for _, q := range []string{"?status=bogus", "?mode=delivery", "?limit=0", "?cursor=@@@", "?payment_status=failed"} {
 		if r := s.owner.do(http.MethodGet, "/api/admin/orders"+q, nil); r.Code != http.StatusUnprocessableEntity {
 			t.Errorf("%s: %d", q, r.Code)
 		}

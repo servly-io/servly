@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { publicApi } from '../api/public';
@@ -19,7 +19,8 @@ const statusView: Record<OrderStatus, { title: string; text: string; icon: IconN
 
 const steps: OrderStatus[] = ['new', 'accepted', 'preparing', 'ready', 'completed'];
 const stepLabels = ['Sent', 'Accepted', 'Preparing', 'Ready'];
-const POLL_MS = 15_000;
+// Pickup guests wait to be called, so their page checks more often.
+const POLL_MS = { dine_in: 15_000, pickup: 6_000 };
 
 /** Confirmation and live status of a guest's order: /o/:token. */
 export function OrderStatusPage() {
@@ -29,6 +30,8 @@ export function OrderStatusPage() {
   const [statusHidden, setStatusHidden] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [menuToken] = useState(() => recallMenuToken(token));
+  const modeRef = useRef<'dine_in' | 'pickup'>(order?.mode ?? 'dine_in');
+  if (order) modeRef.current = order.mode;
 
   useEffect(() => {
     let live = true;
@@ -37,7 +40,10 @@ export function OrderStatusPage() {
       try {
         const o = await publicApi.order(token);
         if (!live) return;
-        setOrder(o);
+        setOrder((prev) => {
+          if (prev && prev.status !== 'ready' && o.status === 'ready') announceReady(o.number);
+          return o;
+        });
         setError(null);
         if (o.status === 'completed' || o.status === 'cancelled') return;
       } catch (err) {
@@ -48,7 +54,7 @@ export function OrderStatusPage() {
         }
         setError(err);
       }
-      timer = setTimeout(() => void poll(), POLL_MS);
+      timer = setTimeout(() => void poll(), POLL_MS[modeRef.current]);
     };
     void poll();
     return () => {
@@ -131,4 +137,14 @@ export function OrderStatusPage() {
       </main>
     </div>
   );
+}
+
+/** The order turned ready while the guest waits: buzz the phone and mark the tab. */
+function announceReady(number: number) {
+  try {
+    navigator.vibrate?.([250, 120, 250, 120, 400]);
+  } catch {
+    /* not supported */
+  }
+  document.title = `Ready! Order ${number}`;
 }

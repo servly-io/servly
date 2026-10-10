@@ -190,7 +190,7 @@ Permission `orders.view` unless stated otherwise.
 
 ### `GET /api/admin/orders`
 
-Query: `status` (repeatable), `mode`, `limit`, `cursor`. Newest first. Each item is an [order](#order-object).
+Query: `status` (repeatable), `payment_status` (repeatable: `unpaid`, `pending`, `paid`, `partially_refunded`, `refunded`), `mode`, `limit`, `cursor`. Newest first. Each item is an [order](#order-object). The board's "To pay" view asks for `payment_status=unpaid&payment_status=pending` in every status except `cancelled`.
 
 ### `GET /api/admin/orders/{id}`
 

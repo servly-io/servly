@@ -103,10 +103,20 @@ People who already have a servly sign-in for another restaurant are added withou
 
 1. Scan a table's QR code with a phone. The menu opens.
 2. Order something. The phone shows the order number and its status.
-3. On a tablet or PC, open **Orders** (`/staff`). The order appears in **New**, highlighted. Turn on **Sound** if the board should beep.
-4. Move it through **Accept**, **Start preparing**, **Mark ready** and **Complete**. The guest's phone follows along.
-5. Open the order, then **Record payment** (cash or card terminal).
-6. Cancel or refund the test order as you would a real one.
+3. On a tablet or PC, open **Orders** (`/staff`). The **Kitchen** view shows the order under **New**, highlighted. Turn on the sound if the board should beep.
+4. Move it through **Accept**, **Start preparing**, **Mark ready** and **Served**. The guest's phone follows along.
+5. Every ticket shows whether it is paid. An order that is served but not paid moves to **To pay**, with the count shown on the button, until someone records the payment: open the order, then pick cash, card terminal or other.
+6. Cancel or refund the test order as you would a real one. **History** lists completed and cancelled orders.
+
+### Pickup orders
+
+A pickup point works like a table, but the guest collects the order at the counter and pays there:
+
+1. The guest scans the pickup point's QR code (on the counter, a flyer or your website) and orders. Their phone shows the order number and checks the status every few seconds.
+2. Staff prepare the order as usual. When it is **Ready**, the phone buzzes and shows "Ready", and the number appears under **Ready to collect** on the pickup screen.
+3. The guest shows their number at the counter. On the ticket, **Take payment & hand over** opens the order: pick how they pay, tap **Paid · hand over**, done. An order that is already paid shows **Handed over** instead.
+
+The **pickup screen** (the screen icon on the board, `/staff/display`) is meant for a TV or tablet facing the guests. Sign it in with a staff account and open it in full screen. It shows order numbers only: **Being prepared** and **Ready to collect**.
 
 ## 10. Set up backups
 
@@ -133,9 +143,7 @@ In order, it:
 | Variable | Default | |
 |---|---|---|
 | `DEMO_PORT` | `8080` | first port to try; the next free one is used |
-| `DEMO_HOST` | this machine's LAN address | the address in QR codes; set it if phones cannot reach the default (VPN) |
+| `DEMO_HOST` | this machine's LAN address | the address in QR codes; set it if phones cannot reach the default (VPN, a VM's internal network) |
 | `DEMO_DIR` | `./.demo` | data directory, wiped on every run |
 
 The demo listens on all network interfaces so phones on the same network can order. Run it only on networks you trust. Its passwords are printed on the screen. `make run` is reachable the same way, on port 8080.
-
-**On Windows with WSL 2:** WSL's default (NAT) network is reachable from that Windows machine only. `make demo` and `make run` therefore forward the port on Windows and allow it in the Windows firewall, after one administrator prompt, and put the Windows LAN address in the QR codes. The firewall rule covers Private networks. If Windows marks your Wi-Fi as Public, mark it Private in Windows Settings, or run with `LAN_ALLOW_PUBLIC=1`. `make lan-close PORT=8080` removes the forward and the rule.

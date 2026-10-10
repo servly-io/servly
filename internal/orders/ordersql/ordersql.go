@@ -140,6 +140,13 @@ func (s *Store) List(ctx context.Context, tenantID uuid.UUID, f orders.ListFilte
 	if f.Mode != "" {
 		where = append(where, "mode = "+arg(f.Mode))
 	}
+	if len(f.PaymentStatuses) > 0 {
+		ph := make([]string, len(f.PaymentStatuses))
+		for i, ps := range f.PaymentStatuses {
+			ph[i] = arg(ps)
+		}
+		where = append(where, "payment_status IN ("+strings.Join(ph, ", ")+")")
+	}
 	if f.Cursor != "" {
 		at, id, err := decodeCursor(f.Cursor)
 		if err != nil {

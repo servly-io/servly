@@ -20,7 +20,7 @@ RACE      := $(if $(filter 1,$(shell $(GO) env CGO_ENABLED)),-race,)
 TESTCOVER ?= $(RACE) -covermode=atomic -coverprofile=coverage.out -coverpkg=./...
 GOJUNITREPORT_VERSION ?= v2.1.0
 
-.PHONY: all build build-go web web-deps web-lint web-typecheck run lan-close demo image test test-report test-integration fmt-check \
+.PHONY: all build build-go web web-deps web-lint web-typecheck run demo image test test-report test-integration fmt-check \
         cover check vet fmt lint clean install docs docs-serve
 
 all: build
@@ -48,16 +48,9 @@ web-typecheck: web-deps
 	cd web && $(NPM) run typecheck
 
 ## run: build and serve on :8080 with SQLite in ./data and readable logs. Other
-## devices on the network can open it; QR codes use this machine's LAN address
-## (on WSL the Windows one, see scripts/lan-address.sh).
+## devices on the network can open it
 run: build
-	SERVLY_LOG_FORMAT=text SERVLY_HTTP_PUBLIC_BASE_URL="$${SERVLY_HTTP_PUBLIC_BASE_URL:-http://$$(scripts/lan-address.sh 8080):8080}" \
-		$(DIST)/servly serve --listen-addr 0.0.0.0:8080
-
-## lan-close: on WSL, remove the Windows port forward and firewall rule that
-## run and demo add. PORT=8080 by default.
-lan-close:
-	scripts/lan-address.sh --remove $(or $(PORT),8080)
+	SERVLY_LOG_FORMAT=text $(DIST)/servly serve --listen-addr 0.0.0.0:8080
 
 ## demo: a local production-like demo: fresh data in ./.demo, restaurant, menu,
 ## tables and staff created through the real API, a sample guest order; prints

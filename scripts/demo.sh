@@ -10,8 +10,7 @@
 # Environment:
 #   DEMO_DIR    data directory, wiped on every run   (default: ./.demo)
 #   DEMO_PORT   first port to try; the next free one is used (default: 8080)
-#   DEMO_HOST   address guests' phones use for QR codes (default: this host's LAN
-#               address; on WSL the Windows one, see scripts/lan-address.sh)
+#   DEMO_HOST   address guests' phones use for QR codes (default: this host's LAN IP)
 
 set -euo pipefail
 
@@ -34,7 +33,9 @@ port_busy "$PORT" && die "no free port near ${DEMO_PORT:-8080}; set DEMO_PORT"
 
 # --- where guests reach the server -----------------------------------------
 if [[ -z "$HOST" ]]; then
-  HOST="$("$(dirname "$0")/lan-address.sh" "$PORT")"
+  HOST="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+  [[ -n "$HOST" ]] || HOST="$(ipconfig getifaddr en0 2>/dev/null || true)"
+  [[ -n "$HOST" ]] || HOST=localhost
 fi
 LISTEN="0.0.0.0:$PORT"
 [[ "$HOST" == localhost || "$HOST" == 127.* ]] && LISTEN="127.0.0.1:$PORT"

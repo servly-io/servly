@@ -143,6 +143,15 @@ func (s *server) listOrders(w http.ResponseWriter, r *http.Request) {
 	for _, st := range q["status"] {
 		f.Statuses = append(f.Statuses, orders.Status(st))
 	}
+	for _, ps := range q["payment_status"] {
+		switch p := payments.Status(ps); p {
+		case payments.StatusUnpaid, payments.StatusPending, payments.StatusPaid, payments.StatusPartiallyRefunded, payments.StatusRefunded:
+			f.PaymentStatuses = append(f.PaymentStatuses, p)
+		default:
+			s.fail(w, r, errMalformedJSON.WithMessage("payment_status must be unpaid, pending, paid, partially_refunded or refunded"))
+			return
+		}
+	}
 	if f.Mode != "" && f.Mode != orders.ModeDineIn && f.Mode != orders.ModePickup {
 		s.fail(w, r, errMalformedJSON.WithMessage("mode must be dine_in or pickup"))
 		return

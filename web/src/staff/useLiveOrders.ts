@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ordersApi } from '../api/staff';
-import type { OrderMode, OrderStatus, StaffOrder } from '../api/types';
+import type { OrderMode, OrderStatus, PaymentStatus, StaffOrder } from '../api/types';
 
 export type Connection = 'connecting' | 'live' | 'reconnecting';
 
@@ -10,24 +10,30 @@ export type Connection = 'connecting' | 'live' | 'reconnecting';
  * after every (re)connect. Notifications only trigger fetches; the server's
  * answer is the state. Missed or duplicate events are harmless.
  */
-export function useLiveOrders(statuses: OrderStatus[], mode: OrderMode | '') {
+export function useLiveOrders(statuses: OrderStatus[], mode: OrderMode | '', payment: PaymentStatus[] = []) {
   const [orders, setOrders] = useState<StaffOrder[] | undefined>(undefined);
   const [error, setError] = useState<unknown>(null);
   const [connection, setConnection] = useState<Connection>('connecting');
   // A stable string, so a new array with the same statuses is the same filter.
   const statusKey = statuses.join(',');
+  const paymentKey = payment.join(',');
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refetch = useCallback(async () => {
     try {
       const status = statusKey.split(',') as OrderStatus[];
-      const page = await ordersApi.list({ status, mode: mode || undefined, limit: 200 });
+      const page = await ordersApi.list({
+        status,
+        payment: paymentKey ? (paymentKey.split(',') as PaymentStatus[]) : undefined,
+        mode: mode || undefined,
+        limit: 200,
+      });
       setOrders(page.items);
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [statusKey, mode]);
+  }, [statusKey, paymentKey, mode]);
 
   // Coalesce bursts of events into one fetch.
   const soon = useCallback(() => {

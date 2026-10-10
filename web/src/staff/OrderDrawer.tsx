@@ -9,8 +9,12 @@ import { ErrorBanner, Field, Spinner, useAction, useLoad } from '../shared/ui';
 
 const late: OrderStatus[] = ['preparing', 'ready'];
 
-/** Order details, history, cancellation and payments. */
-export function OrderDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+/**
+ * Order details, history, cancellation and payments. With handover (a ready
+ * pickup order at the counter) a payment that settles the order also hands it
+ * over, so the counter needs one tap.
+ */
+export function OrderDrawer({ id, handover, onClose, onChanged }: { id: string; handover?: boolean; onClose: () => void; onChanged: () => void }) {
   const { can } = useSession();
   const detail = useLoad(() => ordersApi.get(id), [id]);
   const act = useAction();
@@ -25,10 +29,17 @@ export function OrderDrawer({ id, onClose, onChanged }: { id: string; onClose: (
   }, []);
 
   const apply = async (fn: () => Promise<OrderDetail>) => {
-    const d = await act.run(fn);
+    const d = await act.run(async () => {
+      const after = await fn();
+      if (handover && after.status === 'ready' && after.payment_status === 'paid') {
+        return ordersApi.setStatus(after.id, 'completed', after.version);
+      }
+      return after;
+    });
     if (d) {
       detail.setData(d);
       onChanged();
+      if (handover && d.status === 'completed') onClose();
     } else {
       await detail.reload();
     }
@@ -63,6 +74,12 @@ export function OrderDrawer({ id, onClose, onChanged }: { id: string; onClose: (
         ) : (
           <>
             <ErrorBanner error={act.error} />
+            {handover && o.status === 'ready' && (
+              <div className="banner banner-info">
+                <Icon name="bag" />
+                <span>Pickup at the counter: take {formatMoney(o.outstanding_minor, o.currency)}, and the order is handed over in the same step.</span>
+              </div>
+            )}
             <section className="card stack-tight">
               <ul className="lines">
                 {o.items.map((l, i) => (
@@ -99,7 +116,7 @@ export function OrderDrawer({ id, onClose, onChanged }: { id: string; onClose: (
                   value={reference} onChange={(e) => setReference(e.target.value)} />
                 <div className="row">
                   <button type="submit" className="btn btn-accent btn-large row-grow" disabled={act.busy}>
-                    <Icon name="check" />Paid {formatMoney(o.outstanding_minor, o.currency)}
+                    <Icon name="check" />Paid {formatMoney(o.outstanding_minor, o.currency)}{handover && o.status === 'ready' ? ' · hand over' : ''}
                   </button>
                   {method === 'external_terminal' && (
                     <button type="button" className="btn btn-large" disabled={act.busy}
@@ -153,6 +170,16 @@ export function OrderDrawer({ id, onClose, onChanged }: { id: string; onClose: (
               </ol>
             </section>
 
+            {handover && o.status === 'ready' && can('orders.update_status') && (
+              <button type="button" className="btn btn-ghost" disabled={act.busy}
+                onClick={() => {
+                  if (window.confirm(`Hand over order #${o.number} without payment? It stays under "To pay".`)) {
+                    void apply(() => ordersApi.setStatus(o.id, 'completed', o.version));
+                  }
+                }}>
+                Hand over without payment
+              </button>
+            )}
             {canCancel && (
               <button type="button" className="btn btn-danger" disabled={act.busy} onClick={() => {
                 const reason = window.prompt(`Cancel order #${o.number}? Reason:`);

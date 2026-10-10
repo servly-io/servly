@@ -480,6 +480,11 @@ dialog { color: var(--fg); }
 .note { display: flex; gap: 6px; align-items: flex-start; margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 0.88rem; font-weight: 600; }
 .ticket-note { margin: 0 14px 10px; }
 .ticket-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 0.9rem; }
+.ticket-foot.pay-unpaid, .ticket-foot.pay-pending { background: var(--warn-soft); }
+.badge-pay { font-size: 0.8rem; padding: 3px 10px; }
+.ticket-state { display: flex; align-items: center; gap: 6px; margin: -2px 14px 4px; color: var(--st); font-size: 0.85rem; font-weight: 650; }
+.seg-count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--warn); color: #fff; font-size: 0.75rem; font-weight: 700; line-height: 1.6; }
+@media (prefers-color-scheme: dark) { .seg-count { color: #111; } }
 .ticket-action { margin: 0 10px 10px; }
 .ticket-action .btn { width: 100%; min-height: 52px; font-size: 1.05rem; border-radius: 10px; }
 .btn-st { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
@@ -637,3 +642,27 @@ dialog { color: var(--fg); }
 .track li.current::before { background: linear-gradient(90deg, var(--accent) 0 50%, var(--border) 50% 100%); background-size: 200% 100%; animation: progress 1.6s linear infinite; }
 @keyframes progress { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .track li.current::before { animation: none; background: var(--accent); } }
+
+/* ================================================================
+ * Pickup screen: a TV at the counter, read from across the room
+ * ================================================================ */
+.display { min-height: 100vh; display: flex; flex-direction: column; background: #0b0b0b; color: #f4f4f1; }
+.display-head { display: flex; align-items: center; gap: 20px; padding: 28px 40px; border-bottom: 1px solid #262624; }
+.display-head h1 { font-size: clamp(1.6rem, 3vw, 2.6rem); font-weight: 800; }
+.display-head p { color: #a3a39e; font-size: clamp(1rem, 1.6vw, 1.4rem); }
+.display .logo { background: #f4f4f1; color: #0b0b0b; }
+.display-full { color: #a3a39e; }
+.display-cols { flex: 1; display: grid; grid-template-columns: 1fr 1fr; }
+.display-cols section { padding: 32px 40px; display: flex; flex-direction: column; gap: 24px; }
+.display-cols section + section { border-left: 1px solid #262624; }
+.display-cols h2 { display: flex; align-items: center; gap: 14px; font-size: clamp(1.4rem, 2.6vw, 2.4rem); font-weight: 800; color: #a3a39e; text-transform: uppercase; letter-spacing: 0.04em; }
+.display-ready { background: #161615; }
+.display-ready h2 { color: #f4f4f1; }
+.display-nums { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 16px 28px; font-variant-numeric: tabular-nums; }
+.display-nums li { font-size: clamp(2.4rem, 6vw, 5.5rem); font-weight: 800; line-height: 1; color: #6f6f6b; }
+.display-ready .display-nums li { color: #f4f4f1; }
+.display-nums li.fresh { animation: flash 1s ease-in-out 3; }
+@keyframes flash { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .display-nums li.fresh { animation: none; } }
+.display-empty { font-size: 3rem; color: #3a3a38; }
+@media (max-width: 700px) { .display-cols { grid-template-columns: 1fr; } .display-cols section + section { border-left: none; border-top: 1px solid #262624; } .display-head { padding: 20px; } .display-cols section { padding: 24px 20px; } }
