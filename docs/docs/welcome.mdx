@@ -1,0 +1,22 @@
+---
+id: welcome
+title: Welcome
+slug: /
+---
+
+servly is a lightweight order management system for restaurants. Guests scan a QR code at the table, order from their phone, and the order appears on the staff board on a tablet or PC. The owner manages the menu, tables and staff in the browser.
+
+* **Runs locally** on one small machine with SQLite. No cloud account, and no internet needed for ordering.
+* **Runs managed** for many restaurants on PostgreSQL. Same binary, same workflow, strict tenant isolation.
+* **One process**: a Go server that embeds the web app.
+
+servly is being built in phases. See the [master plan](https://github.com/servly-io/servly/blob/main/MASTER_PLAN.md).
+
+## Where to go next
+
+* [Architecture](architecture.md): how the code is organized.
+* [Domain model](domain-model.md): entities, schema, order and payment lifecycles, pricing.
+* [API](api.md): the HTTP contract.
+* [Security](security.md): authentication, authorization, tenant isolation.
+* [Local deployment](local-deployment.md), [Cloud deployment](cloud-deployment.md), [Backup and restore](backup-restore.md).
+* [Decision records](adr/index.md).
