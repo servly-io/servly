@@ -172,6 +172,10 @@ The order's `mode` follows the dining location: a table gives `dine_in`, a picku
 
 `422` for any rule in [Pricing](domain-model.md#pricing). `details` names the offending line index and option. Client-sent prices are not accepted, because there is no field for them. Rate-limited per IP (10 at once, then 1 per 6 s) and per dining location (30, then 1 per 2 s).
 
+### `POST /api/public/orders/quote`
+
+The same body as order placement, without `Idempotency-Key`. Prices the cart against the live menu and returns `{mode, dining_location, currency, subtotal_minor, total_minor, items}` as order placement would; nothing is stored. The same `422` errors apply. The cart review page uses it to show server-confirmed totals.
+
 ### `GET /api/public/orders/{orderToken}`
 
 Returns the same body as order creation. It contains no internal ids, no staff identities and no payment details beyond `payment_status`. `404` if the location disabled public status, or the token is unknown. Rate-limited per IP.

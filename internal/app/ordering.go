@@ -271,3 +271,28 @@ func (a *App) GetPublicOrder(ctx context.Context, token string) (*PlacedOrder, e
 	}
 	return &PlacedOrder{Order: o, DiningName: name}, nil
 }
+
+// Quote prices a guest's cart against the live menu without storing
+// anything, so the review page shows server-confirmed totals.
+func (a *App) QuoteOrder(ctx context.Context, token, notes string, lines []orders.LineRequest) (*PlacedOrder, error) {
+	d, loc, err := resolveDining(ctx, a.DB, token)
+	if err != nil {
+		return nil, err
+	}
+	m, err := guestMenu(ctx, a.DB, loc)
+	if err != nil {
+		return nil, err
+	}
+	priced, subtotal, err := orders.Price(lines, notes, m)
+	if err != nil {
+		return nil, err
+	}
+	mode := orders.ModeDineIn
+	if d.Kind == dining.KindPickup {
+		mode = orders.ModePickup
+	}
+	return &PlacedOrder{DiningName: d.Name, Order: &orders.Order{
+		Mode: mode, Status: orders.StatusNew, PaymentStatus: payments.StatusUnpaid, Currency: loc.Currency,
+		Subtotal: subtotal, Total: subtotal, Notes: strings.TrimSpace(notes), Lines: priced,
+	}}, nil
+}

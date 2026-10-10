@@ -340,3 +340,21 @@ func TestPublicLimits(t *testing.T) {
 		t.Fatalf("11th order from one address: %d", last.Code)
 	}
 }
+
+func TestQuote(t *testing.T) {
+	dbtest.Each(t, func(t *testing.T, db *database.DB) {
+		s := newShop(t, db)
+		q := mustCode(t, s.client().do(http.MethodPost, "/api/public/orders/quote", s.basicOrder()), http.StatusOK)
+		if q["total_minor"].(float64) != 2900 || len(q["items"].([]any)) != 2 || q["order_token"] != nil || q["number"] != nil {
+			t.Fatalf("quote: %v", q)
+		}
+		if s.countOrders() != 0 {
+			t.Fatal("a quote stored an order")
+		}
+		bad := s.basicOrder()
+		bad["items"] = []any{map[string]any{"menu_item_id": s.soldOut["id"], "quantity": 1}}
+		if r := s.client().do(http.MethodPost, "/api/public/orders/quote", bad); r.code() != "item_unavailable" {
+			t.Fatalf("bad quote: %d %s", r.Code, r.Body.String())
+		}
+	})
+}

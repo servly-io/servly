@@ -37,6 +37,7 @@ func (s *server) publicRoutes(r chi.Router) {
 	r.Get("/assets/{id}", s.publicAsset)
 	r.Get("/menu/{token}", s.publicMenu)
 	r.Post("/orders", s.placeOrder)
+	r.Post("/orders/quote", s.quoteOrder)
 	r.Get("/orders/{token}", s.publicOrder)
 }
 
@@ -158,9 +159,7 @@ func (s *server) placeOrder(w http.ResponseWriter, r *http.Request) {
 		Notes:          req.Notes,
 		IdempotencyKey: r.Header.Get("Idempotency-Key"),
 		RequestHash:    hex.EncodeToString(sum[:]),
-	}
-	for _, l := range req.Items {
-		in.Lines = append(in.Lines, orders.LineRequest{MenuItemID: l.MenuItemID, Quantity: l.Quantity, OptionIDs: l.OptionIDs, Notes: l.Notes})
+		Lines:          req.lines(),
 	}
 	res, err := s.App.PlaceOrder(r.Context(), in, s.Now())
 	if err != nil {
@@ -172,6 +171,44 @@ func (s *server) placeOrder(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusOK
 	}
 	writeJSON(w, status, publicOrderView(res))
+}
+
+// quoteOrder prices a cart without placing it.
+func (s *server) quoteOrder(w http.ResponseWriter, r *http.Request) {
+	if !s.public.menuPerIP.allow(s.clientIP(r)) {
+		s.limited(w, r, s.public.menuPerIP)
+		return
+	}
+	var req placeOrderRequest
+	if err := decodeJSON(r, &req); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	res, err := s.App.QuoteOrder(r.Context(), req.DiningLocationToken, req.Notes, req.lines())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	v := publicOrderView(res)
+	writeJSON(w, http.StatusOK, quoteJSON{Mode: v.Mode, DiningLocation: v.DiningLocation, Currency: v.Currency,
+		Subtotal: v.Subtotal, Total: v.Total, Items: v.Items})
+}
+
+type quoteJSON struct {
+	Mode           orders.Mode    `json:"mode"`
+	DiningLocation string         `json:"dining_location"`
+	Currency       money.Currency `json:"currency"`
+	Subtotal       money.Amount   `json:"subtotal_minor"`
+	Total          money.Amount   `json:"total_minor"`
+	Items          []lineJSON     `json:"items"`
+}
+
+func (req placeOrderRequest) lines() []orders.LineRequest {
+	out := make([]orders.LineRequest, 0, len(req.Items))
+	for _, l := range req.Items {
+		out = append(out, orders.LineRequest{MenuItemID: l.MenuItemID, Quantity: l.Quantity, OptionIDs: l.OptionIDs, Notes: l.Notes})
+	}
+	return out
 }
 
 func (s *server) publicOrder(w http.ResponseWriter, r *http.Request) {
