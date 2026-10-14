@@ -5,7 +5,7 @@ import { Icon } from '../shared/icons';
 import { EmptyState, ErrorBanner, Field, PageHeader, Spinner, useAction, useLoad } from '../shared/ui';
 import { useAdmin } from './AdminLayout';
 
-const providerNames: Record<string, string> = { stripe: 'Stripe', sandbox: 'Sandbox' };
+const providerNames: Record<string, string> = { stripe: 'Stripe', xendit: 'Xendit', midtrans: 'Midtrans', sandbox: 'Sandbox' };
 
 const tableFlows: { value: TableFlow; title: string; text: string }[] = [
   { value: 'after', title: 'Pay from the phone when finished', text: 'Guests order as now and pay on their phone whenever they like. Staff can still take cash.' },
@@ -159,6 +159,35 @@ function Wizard({ overview, onDone }: { overview: PaymentsOverview; onDone: () =
               <p className="muted small">Payment methods (cards, Apple Pay, Google Pay, {market.methods.slice(1, 3).join(', ')}) are switched on in your Stripe dashboard under <strong>Settings → Payment methods</strong>; the checkout offers what fits each guest.</p>
             </>
           )}
+          {providerId === 'xendit' && (
+            <>
+              <ol className="steps-list">
+                <li>Sign in at <a className="text-link" href="https://dashboard.xendit.co/settings/developers#api-keys" target="_blank" rel="noreferrer">dashboard.xendit.co</a> in <strong>test mode</strong>: you can switch to the live key later.</li>
+                <li>Under <strong>Settings → API keys</strong>, generate a <strong>secret key</strong> with <em>write</em> permission for <em>Payment Sessions</em> (Money-in) and <em>Refunds</em>.</li>
+                <li>Paste it here. It is stored encrypted and never shown again.</li>
+              </ol>
+              <Field label="Secret key" hint="Starts with xnd_development_ (test) or xnd_production_ (live).">
+                <input required autoComplete="off" spellCheck={false} placeholder="xnd_development_…" value={secretKey} onChange={(e) => setSecretKey(e.target.value.trim())} />
+              </Field>
+              <Field label="Webhook verification token (optional)" hint="Settings → Webhooks. Makes payments show up instantly; until then servly checks open payments every few seconds.">
+                <input autoComplete="off" spellCheck={false} value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value.trim())} />
+              </Field>
+              <p className="muted small">QRIS, e-wallets (OVO, DANA, ShopeePay, LinkAja), virtual accounts and cards are switched on in your Xendit dashboard under <strong>Payment channels</strong>; the checkout offers what is active.</p>
+            </>
+          )}
+          {providerId === 'midtrans' && (
+            <>
+              <ol className="steps-list">
+                <li>Sign in at <a className="text-link" href="https://dashboard.sandbox.midtrans.com/settings/config_info" target="_blank" rel="noreferrer">dashboard.sandbox.midtrans.com</a> (sandbox) first: you can switch to production later.</li>
+                <li>Under <strong>Settings → Access keys</strong>, copy the <strong>server key</strong> (not the client key).</li>
+                <li>Paste it here. It is stored encrypted and never shown again.</li>
+              </ol>
+              <Field label="Server key" hint="Starts with SB-Mid-server- (sandbox) or Mid-server- (production).">
+                <input required autoComplete="off" spellCheck={false} placeholder="SB-Mid-server-…" value={secretKey} onChange={(e) => setSecretKey(e.target.value.trim())} />
+              </Field>
+              <p className="muted small">QRIS, GoPay, ShopeePay, virtual accounts and cards are switched on in your Midtrans dashboard under <strong>Settings → Snap preferences</strong>; the payment page offers what is active.</p>
+            </>
+          )}
           {providerId === 'sandbox' && <p className="muted">Nothing to connect: the sandbox runs inside servly. Guests see a test page with Pay and Decline buttons.</p>}
           <div className="wizard-actions">
             <button type="button" className="btn" onClick={() => setStep(1)}>Back</button>
@@ -239,7 +268,7 @@ function Connected({ account: a, market, onChange }: { account: PaymentAccount; 
         <form className="card stack" onSubmit={(e) => { e.preventDefault(); void hook.run(async () => { await paymentsApi.update({ webhook_secret: secret }); setSecret(''); onChange(); }); }}>
           <div className="row">
             <h2 className="row-grow">Instant confirmation (webhooks)</h2>
-            <span className={`badge ${a.webhooks ? 'badge-ok' : ''}`}>{a.webhooks ? 'On' : 'Off'}</span>
+            {a.provider !== 'midtrans' && <span className={`badge ${a.webhooks ? 'badge-ok' : ''}`}>{a.webhooks ? 'On' : 'Off'}</span>}
           </div>
           <p className="muted small">
             {a.webhooks
@@ -247,17 +276,27 @@ function Connected({ account: a, market, onChange }: { account: PaymentAccount; 
               : 'servly checks open payments every few seconds, so this works without webhooks. Webhooks make payments appear instantly, but need servly to be reachable from the internet over HTTPS.'}
           </p>
           <ol className="steps-list">
-            <li>In Stripe, open <strong>Developers → Webhooks → Add endpoint</strong> and paste this address:</li>
+            {a.provider === 'stripe' && <li>In Stripe, open <strong>Developers → Webhooks → Add endpoint</strong> and paste this address:</li>}
+            {a.provider === 'xendit' && <li>In Xendit, open <strong>Settings → Webhooks</strong> and paste this address for <strong>Payment Session</strong> events:</li>}
+            {a.provider === 'midtrans' && <li>In Midtrans, open <strong>Settings → Payment → Notification URL</strong> and paste this address as the payment notification URL:</li>}
           </ol>
           <code className="copy-box break">{a.webhook_url}</code>
-          <ol className="steps-list" start={2}>
-            <li>Select the events <code>checkout.session.completed</code>, <code>checkout.session.async_payment_succeeded</code>, <code>checkout.session.async_payment_failed</code> and <code>checkout.session.expired</code>.</li>
-            <li>Copy the endpoint's signing secret here.</li>
-          </ol>
-          <div className="add-bar">
-            <Field label="Signing secret"><input autoComplete="off" spellCheck={false} placeholder="whsec_…" value={secret} onChange={(e) => setSecret(e.target.value.trim())} /></Field>
-            <button type="submit" className="btn" style={{ minHeight: 44 }} disabled={hook.busy || !secret}>Save</button>
-          </div>
+          {a.provider === 'midtrans' ? (
+            <p className="muted small">Midtrans signs notifications with your server key, so there is no secret to copy.</p>
+          ) : (
+            <>
+              <ol className="steps-list" start={2}>
+                {a.provider === 'stripe' && <li>Select the events <code>checkout.session.completed</code>, <code>checkout.session.async_payment_succeeded</code>, <code>checkout.session.async_payment_failed</code> and <code>checkout.session.expired</code>.</li>}
+                <li>{a.provider === 'xendit' ? 'Copy the webhook verification token on the same page here.' : "Copy the endpoint's signing secret here."}</li>
+              </ol>
+              <div className="add-bar">
+                <Field label={a.provider === 'xendit' ? 'Verification token' : 'Signing secret'}>
+                  <input autoComplete="off" spellCheck={false} placeholder={a.provider === 'stripe' ? 'whsec_…' : ''} value={secret} onChange={(e) => setSecret(e.target.value.trim())} />
+                </Field>
+                <button type="submit" className="btn" style={{ minHeight: 44 }} disabled={hook.busy || !secret}>Save</button>
+              </div>
+            </>
+          )}
           <ErrorBanner error={hook.error} />
         </form>
       )}
