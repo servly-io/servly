@@ -425,7 +425,7 @@ The page the provider sends the guest back to (`/pay/{token}`) polls this:
 
 ### `POST /api/payments/webhooks/{provider}/{accountId}`
 
-For the provider, not for servly's frontend: there is no session or CSRF token. The body is verified with the account's webhook signing secret. A wrong or old signature, an unknown account, or a provider mismatch answers `422 payment_webhook_invalid`, and nothing about the account is revealed. Each event is applied once, however often it is delivered. Stripe events: `checkout.session.completed`, `…async_payment_succeeded`, `…async_payment_failed`, `…expired`.
+For the provider, not for servly's frontend: there is no session or CSRF token. The body is verified with the account's webhook signing secret. A wrong or old signature, an unknown account, or a provider mismatch answers `422 payment_webhook_invalid`, and nothing about the account is revealed. Each event is applied once, however often it is delivered. Stripe events: `checkout.session.completed`, `…async_payment_succeeded`, `…async_payment_failed`, `…expired`. Xendit: `payment_session.completed` and `…expired`, with the `x-callback-token` header. Midtrans: payment notifications, verified by their `signature_key`. Every event only tells servly which checkout to look up at the provider; the provider's answer decides.
 
 ### Payment object additions
 

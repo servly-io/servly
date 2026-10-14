@@ -530,7 +530,7 @@ Online payments go through established payment providers, following their recomm
 | EU | cards with Apple Pay and Google Pay, iDEAL / Wero, Bancontact, BLIK, PayPal | Stripe | Mollie, Adyen; SumUp for readers |
 | US | cards with Apple Pay and Google Pay, tips, PayPal and Venmo, Cash App Pay | Stripe | Square, PayPal |
 
-Adapters are built in this order: **Stripe, Xendit, HitPay, PayPal**. Mollie, Adyen, Midtrans, Square, SumUp and Fiuu follow demand.
+Adapters are built in this order: **Stripe, Xendit and Midtrans, HitPay, PayPal**. Mollie, Adyen, Square, SumUp and Fiuu follow demand.
 
 **Connecting.** Self-hosted installs connect with the restaurant's own restricted API keys. The managed cloud uses the providers' hosted platform onboarding: Stripe Connect Standard with Account Links, Xendit xenPlatform, PayPal partner onboarding. Provider credentials are encrypted at rest (AES-256-GCM, key from `SERVLY_SECRET_KEY`), write-only, and never logged.
 
@@ -1086,11 +1086,12 @@ Design: §8.1, ADR 0007, `docs/docs/payments.md`. Each step ships on its own and
 * Markets: EU, US and SG; MY for cards, FPX and GrabPay.
 * Still to prove with a real Stripe test account: one end-to-end payment per listed method. The adapter is tested against recorded responses only.
 
-**7.2 - Xendit**
+**7.2 - Indonesia: Xendit and Midtrans** (done, except the staff-screen QR)
 
-* QRIS, Indonesian e-wallets and virtual accounts.
-* Dynamic QR on the staff screen ("Show payment QR").
-* Markets: ID; MY as an alternative.
+* Done: Xendit through Payment Sessions (its hosted checkout, which replaced the Invoice API), and Midtrans through Snap, both with own keys. QRIS, Indonesian e-wallets, virtual accounts and cards, as the restaurant enables them in the provider's dashboard. Webhooks: Xendit's verification token, Midtrans' signature_key. Refunds through the provider.
+* Open: dynamic QR on the staff screen ("Show payment QR").
+* Rupiah only for now; Xendit for MY follows with HitPay (7.3).
+* Still to prove with real sandbox accounts: one payment per method.
 
 **7.3 - HitPay**
 
@@ -1109,7 +1110,7 @@ Design: §8.1, ADR 0007, `docs/docs/payments.md`. Each step ships on its own and
 **7.6 - Later, each with its own decision**
 
 * A native "servly Counter" app for Tap to Pay on iPhone and Android.
-* Tips beyond presets, split bills, and further adapters (Mollie, Adyen, Midtrans, Square, Fiuu) as restaurants ask for them.
+* Tips beyond presets, split bills, and further adapters (Mollie, Adyen, Square, Fiuu) as restaurants ask for them.
 
 Exit criteria (for every step that adds an adapter):
 

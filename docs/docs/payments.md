@@ -3,16 +3,17 @@ id: payments
 title: Payment integrations
 ---
 
-**Status:** steps 7.0 and 7.1 of MASTER_PLAN.md Phase 7 are built ([ADR 0007](adr/0007-online-payments.md), [ADR 0008](adr/0008-prepaid-orders-on-payment.md)):
+**Status:** steps 7.0, 7.1 and 7.2 of MASTER_PLAN.md Phase 7 are built ([ADR 0007](adr/0007-online-payments.md), [ADR 0008](adr/0008-prepaid-orders-on-payment.md)):
 - the provider contract;
 - credential encryption;
 - hosted checkouts with polling and webhooks;
 - the **Stripe** adapter (own keys);
+- the **Xendit** (Payment Sessions) and **Midtrans** (Snap) adapters for Indonesia (own keys, rupiah);
 - a built-in **sandbox** provider for demos;
 - the setup wizard;
 - both guest flows.
 
-Xendit, HitPay, card readers, platform connect and PayPal follow (7.2-7.5). Manual payments (cash, an external card terminal, other) work as before.
+HitPay, card readers, platform connect and PayPal follow (7.3-7.5). Manual payments (cash, an external card terminal, other) work as before.
 
 servly does not process cards itself, and it does not invent a payment flow. Every provider below already solves card security, Strong Customer Authentication, local wallets and payouts. servly connects to them through a small adapter and follows their recommended integration. It also keeps the rule it has today: **the server, not the guest's browser, decides when an order is paid.**
 
@@ -292,3 +293,16 @@ Online payment in those markets therefore depends on a small **order charges** f
 * Should guests be able to split a table's bill? Probably later, by item or by amount, through one checkout per share.
 * Should guests get receipts by email? Providers can send them, which keeps guest email addresses out of servly.
 * Should the platform keep an application fee per payment? No: subscription billing is out of scope (MASTER_PLAN.md §2.2) until the operational model is proven.
+
+## Indonesia in practice
+
+| | Xendit | Midtrans |
+|---|---|---|
+| servly uses | Payment Sessions, `PAYMENT_LINK` mode | Snap (hosted page), Core API for status and refunds |
+| Key | secret key, `xnd_development_…` / `xnd_production_…`, write access to Payment Sessions and Refunds | server key, `SB-Mid-server-…` / `Mid-server-…` |
+| Webhooks | Settings → Webhooks: servly's address for Payment Session events, and the verification token in servly | Settings → Payment → Notification URL: servly's address; verified with the server key, no extra secret |
+| Return to servly | only over HTTPS; on a plain-HTTP install the guest finishes on Xendit's page and reopens the order from its link | any address |
+| Shown to staff | "Xendit" (the session does not name the channel) | the channel, such as "QRIS · Gopay" or "Card •••• 1114" |
+| Refunds | `POST /refunds` with the payment request | `/v2/{order}/refund`: cards, GoPay, ShopeePay, QRIS; bank transfers are refunded outside Midtrans |
+
+Amounts are whole rupiah on both sides; a provider amount with a fraction is refused, not rounded.
