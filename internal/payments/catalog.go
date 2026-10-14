@@ -42,7 +42,6 @@ var Catalog = []Market{
 		Providers: []CatalogProvider{
 			{ID: "hitpay", Name: "HitPay", Recommended: true, Methods: []string{"DuitNow QR", "FPX", "Touch 'n Go, GrabPay, ShopeePay, Boost", "Cards"}},
 			{ID: "stripe", Name: "Stripe", Methods: []string{"Cards", "Apple Pay", "Google Pay", "FPX", "GrabPay"}, Note: "No DuitNow QR."},
-			{ID: "xendit", Name: "Xendit", Methods: []string{"DuitNow QR", "FPX", "E-wallets", "Cards"}},
 		}},
 	{Code: "EU", Name: "European Union", Currencies: []string{"EUR", "PLN", "SEK", "DKK", "CZK", "RON", "HUF"},
 		Methods: []string{"Cards with Apple Pay and Google Pay", "iDEAL | Wero, Bancontact, BLIK and other local methods", "PayPal", "Klarna"},

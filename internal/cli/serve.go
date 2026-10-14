@@ -17,8 +17,10 @@ import (
 	"github.com/servly-io/servly/internal/app"
 	"github.com/servly-io/servly/internal/httpapi"
 	"github.com/servly-io/servly/internal/payments/provider"
+	"github.com/servly-io/servly/internal/payments/provider/midtrans"
 	"github.com/servly-io/servly/internal/payments/provider/sandbox"
 	"github.com/servly-io/servly/internal/payments/provider/stripe"
+	"github.com/servly-io/servly/internal/payments/provider/xendit"
 	"github.com/servly-io/servly/internal/platform/secretbox"
 	"github.com/servly-io/servly/internal/storage"
 	"github.com/servly-io/servly/web"
@@ -77,7 +79,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 	stop := make(chan struct{})
 	application := app.New(db, log)
 	application.MaxImageBytes = cfg.MaxImageBytes
-	application.Providers = map[string]provider.Provider{"stripe": stripe.New()}
+	application.Providers = map[string]provider.Provider{"stripe": stripe.New(), "xendit": xendit.New(), "midtrans": midtrans.New()}
 	if cfg.PaymentsSandbox {
 		application.Providers["sandbox"] = sandbox.New()
 		log.Warn("payments sandbox is on: guests can 'pay' on a fake checkout page; never use it for real guests")

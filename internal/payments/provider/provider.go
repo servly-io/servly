@@ -8,6 +8,7 @@ package provider
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/servly-io/servly/internal/apperr"
@@ -95,4 +96,21 @@ type Provider interface {
 	ParseWebhook(c Credentials, header http.Header, body []byte, now time.Time) (*Event, error)
 	// Refund gives back amount of a payment.
 	Refund(ctx context.Context, c Credentials, paymentRef string, amount money.Amount, currency money.Currency, idempotencyKey string) error
+}
+
+// WholeAmount parses a provider amount such as "17000" or "17000.00" into whole
+// units without floating point; a fraction is refused.
+func WholeAmount(s string) (money.Amount, error) {
+	n, frac, _ := strings.Cut(strings.TrimSpace(s), ".")
+	if strings.Trim(frac, "0") != "" || n == "" {
+		return 0, ErrCurrency.WithMessage("amount %q is not a whole rupiah amount", s)
+	}
+	var a int64
+	for _, d := range n {
+		if d < '0' || d > '9' || a > int64(money.MaxAmount) {
+			return 0, ErrCurrency.WithMessage("amount %q is not a whole rupiah amount", s)
+		}
+		a = a*10 + int64(d-'0')
+	}
+	return money.Amount(a), nil
 }

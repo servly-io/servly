@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"github.com/servly-io/servly/internal/payments/provider"
+	"github.com/servly-io/servly/internal/payments/provider/midtrans"
 	"github.com/servly-io/servly/internal/payments/provider/sandbox"
 	"github.com/servly-io/servly/internal/payments/provider/stripe"
 	"github.com/servly-io/servly/internal/platform/database"
@@ -354,4 +357,70 @@ func TestSettleRace(t *testing.T) {
 			t.Fatalf("orders %d, online payments %d; want 1 and 1", s.countOrders(), payments)
 		}
 	})
+}
+
+// TestMidtransNotification: a Midtrans checkout is referenced by servly's own
+// id (order_id); a signed notification settles it into one paid order.
+func TestMidtransNotification(t *testing.T) {
+	var mu sync.Mutex
+	var orderID string
+	paid := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.URL.Path == "/snap/v1/transactions":
+			var b struct {
+				TD struct {
+					OrderID string `json:"order_id"`
+				} `json:"transaction_details"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			orderID = b.TD.OrderID
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"token":"t","redirect_url":"https://app.sandbox.midtrans.com/snap/v4/redirection/t"}`)
+		case paid && r.URL.Path == "/v2/"+orderID+"/status":
+			fmt.Fprint(w, `{"status_code":"200","transaction_status":"settlement","gross_amount":"600.00","currency":"IDR","payment_type":"qris","issuer":"gopay"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"status_code":"404"}`)
+		}
+	}))
+	defer srv.Close()
+	mt := &midtrans.Client{SnapSandbox: srv.URL, APISandbox: srv.URL, HTTP: srv.Client()}
+
+	s := newShop(t, dbtest.Open(t, database.SQLite))
+	mustCode(t, s.owner.do(http.MethodPatch, "/api/admin/settings", map[string]any{"currency": "IDR"}), http.StatusOK)
+	s.enablePayments(t, mt)
+	acct := s.connect(t, map[string]any{"provider": "midtrans", "secret_key": "SB-Mid-server-1", "table_flow": "after", "pickup_flow": "before"})
+	start := mustCode(t, s.client().do(http.MethodPost, "/api/public/checkouts", s.pickupCart(), "Idempotency-Key", "cart-midtrans-1"), http.StatusOK)
+
+	notify := func(txStatus, status, gross string) resp {
+		sum := sha512.Sum512([]byte(orderID + status + gross + "SB-Mid-server-1"))
+		body := fmt.Sprintf(`{"order_id":%q,"status_code":%q,"gross_amount":%q,"transaction_id":"tx-1","transaction_status":%q,"signature_key":%q}`,
+			orderID, status, gross, txStatus, hex.EncodeToString(sum[:]))
+		req := httptest.NewRequest(http.MethodPost, strings.TrimPrefix(acct["webhook_url"].(string), "http://example.com"), strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		s.h.ServeHTTP(rec, req)
+		return resp{rec}
+	}
+	if r := notify("pending", "201", "600.00"); r.Code != http.StatusNoContent || s.countOrders() != 0 {
+		// Pending: servly asks Midtrans, which says open; nothing is created.
+		t.Fatalf("before payment: %d %s, orders %d", r.Code, r.Body.String(), s.countOrders())
+	}
+	mu.Lock()
+	paid = true
+	mu.Unlock()
+	if r := notify("settlement", "200", "600.00"); r.Code != http.StatusNoContent {
+		t.Fatalf("notification: %d %s", r.Code, r.Body.String())
+	}
+	got := mustCode(t, s.client().do(http.MethodGet, "/api/public/checkouts/"+start["checkout_token"].(string), nil), http.StatusOK)
+	if got["status"] != "paid" || s.countOrders() != 1 {
+		t.Fatalf("checkout %v, orders %d", got, s.countOrders())
+	}
+	list := mustCode(t, s.owner.do(http.MethodGet, "/api/admin/orders?mode=pickup", nil), http.StatusOK)["items"].([]any)
+	d := mustCode(t, s.owner.do(http.MethodGet, "/api/admin/orders/"+list[0].(map[string]any)["id"].(string), nil), http.StatusOK)
+	if pm := d["payments"].([]any)[0].(map[string]any); pm["detail"] != "QRIS · Gopay" || pm["provider"] != "midtrans" {
+		t.Fatalf("payment: %v", pm)
+	}
 }
