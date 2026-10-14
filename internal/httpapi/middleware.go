@@ -60,7 +60,7 @@ func recoverer(log *slog.Logger) func(http.Handler) http.Handler {
 
 // maxBody caps the request body by route: 64 KiB on the public API, the
 // upload size for asset uploads, n otherwise.
-func maxBody(n int64) func(http.Handler) http.Handler {
+func maxBody(n, upload int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			limit := n
@@ -68,7 +68,7 @@ func maxBody(n int64) func(http.Handler) http.Handler {
 			case strings.HasPrefix(r.URL.Path, "/api/public/"):
 				limit = publicMaxBodyBytes
 			case r.URL.Path == "/api/admin/assets" && r.Method == http.MethodPost:
-				limit = uploadMaxBodyBytes
+				limit = upload
 			}
 			r.Body = http.MaxBytesReader(w, r.Body, limit)
 			next.ServeHTTP(w, r)

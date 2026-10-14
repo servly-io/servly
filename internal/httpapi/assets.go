@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"mime"
@@ -15,11 +16,9 @@ import (
 	"github.com/servly-io/servly/internal/tenant"
 )
 
-// Body limits by route, MASTER_PLAN.md §12.
-const (
-	publicMaxBodyBytes = 64 << 10
-	uploadMaxBodyBytes = app.MaxAssetBytes + 64<<10 // the image plus multipart framing
-)
+// Body limit of the public API, MASTER_PLAN.md §12. Uploads get the image
+// limit plus multipart framing (see maxBody).
+const publicMaxBodyBytes = 64 << 10
 
 var errNoFile = apperr.Invalid("file_required", `send the image as multipart/form-data field "file"`)
 
@@ -86,13 +85,12 @@ func (s *server) adminAsset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	as, f, err := s.App.AdminAsset(r.Context(), principal(r), id)
+	as, data, err := s.App.AdminAsset(r.Context(), principal(r), id)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	defer f.Close()
-	serveAsset(w, r, as, f, "private, max-age=300")
+	serveAsset(w, r, as, data, "private, max-age=300")
 }
 
 // publicAsset serves an image a live menu item shows.
@@ -102,17 +100,16 @@ func (s *server) publicAsset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	as, f, err := s.App.PublicAsset(r.Context(), id)
+	as, data, err := s.App.PublicAsset(r.Context(), id)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	defer f.Close()
 	// Assets never change once uploaded; a new image is a new id.
-	serveAsset(w, r, as, f, "public, max-age=86400")
+	serveAsset(w, r, as, data, "public, max-age=86400, immutable")
 }
 
-func serveAsset(w http.ResponseWriter, r *http.Request, as *app.Asset, f io.ReadSeeker, cache string) {
+func serveAsset(w http.ResponseWriter, r *http.Request, as *app.Asset, data []byte, cache string) {
 	h := w.Header()
 	h.Set("Content-Type", as.ContentType)
 	h.Set("X-Content-Type-Options", "nosniff")
@@ -120,5 +117,5 @@ func serveAsset(w http.ResponseWriter, r *http.Request, as *app.Asset, f io.Read
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	h.Set("Cache-Control", cache)
 	h.Set("ETag", strconv.Quote(as.SHA256))
-	http.ServeContent(w, r, "", as.CreatedAt.Time, f)
+	http.ServeContent(w, r, "", as.CreatedAt.Time, bytes.NewReader(data))
 }

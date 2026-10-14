@@ -45,9 +45,9 @@ export const menuApi = {
   updateItem: (id: string, body: MenuItemInput) => api<MenuItem>('PATCH', `/api/admin/menu/items/${id}`, { body }),
   duplicateItem: (id: string) => api<MenuItem>('POST', `/api/admin/menu/items/${id}/duplicate`),
   deleteItem: (id: string) => api<{ archived: boolean } | undefined>('DELETE', `/api/admin/menu/items/${id}`),
-  upload: (file: File) => {
+  upload: (file: Blob) => {
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', file, 'photo');
     return api<Asset>('POST', '/api/admin/assets', { form });
   },
 };
@@ -64,7 +64,7 @@ export const diningApi = {
 
 export const settingsApi = {
   get: () => api<Settings>('GET', '/api/admin/settings'),
-  update: (body: Partial<Settings>) => api<Settings>('PATCH', '/api/admin/settings', { body }),
+  update: (body: Partial<Omit<Settings, 'max_image_bytes'>>) => api<Settings>('PATCH', '/api/admin/settings', { body }),
 };
 
 export const paymentsApi = {

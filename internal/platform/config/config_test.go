@@ -130,12 +130,13 @@ func TestInvalidValuesAreAllReported(t *testing.T) {
 	t.Setenv("SERVLY_SECRET_KEY", "too-short")
 	t.Setenv("SERVLY_SETUP_TOKEN", "short")
 	t.Setenv("SERVLY_PAYMENTS_SANDBOX", "kind of")
+	t.Setenv("SERVLY_UPLOADS_MAX_IMAGE_BYTES", "1")
 	_, err := Load(New(), "")
 	if err == nil {
 		t.Fatal("want error")
 	}
 	for _, key := range []string{KeyDatabaseDriver, KeyMigrateOnStart, KeyLogLevel, KeyLogFormat, KeyCookieSecure, KeyTrustProxy, KeyPublicBaseURL,
-		KeySecretKey, KeySetupToken, KeySandbox} {
+		KeySecretKey, KeySetupToken, KeySandbox, KeyMaxImageBytes} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("error does not mention %s: %v", key, err)
 		}

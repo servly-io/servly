@@ -104,7 +104,7 @@ func TestDecodeJSON(t *testing.T) {
 	run := func(body string, limit int64) error {
 		var v req
 		var err error
-		h := maxBody(limit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { err = decodeJSON(r, &v) }))
+		h := maxBody(limit, limit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { err = decodeJSON(r, &v) }))
 		do(t, h, http.MethodPost, "/", strings.NewReader(body))
 		return err
 	}

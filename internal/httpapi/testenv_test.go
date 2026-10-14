@@ -15,7 +15,6 @@ import (
 	"github.com/servly-io/servly/internal/app"
 	"github.com/servly-io/servly/internal/platform/database"
 	"github.com/servly-io/servly/internal/platform/database/dbtest"
-	"github.com/servly-io/servly/internal/storage"
 )
 
 // env is a server on a fresh database with one restaurant, "roma", owned by
@@ -34,7 +33,6 @@ const annaPW = "correct horse battery"
 func newEnv(t *testing.T, db *database.DB, mod ...func(*Deps)) *env {
 	t.Helper()
 	e := &env{t: t, db: db, app: app.New(db, quiet), now: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)}
-	e.app.Files = storage.NewLocal(t.TempDir())
 	d := Deps{Log: quiet, App: e.app, Now: func() time.Time { return e.now }}
 	for _, m := range mod {
 		m(&d)

@@ -153,6 +153,8 @@ export interface Settings {
   public_status_enabled: boolean;
   /** Off: guests can browse the menu but not order (closing time, rush). */
   accepting_orders: boolean;
+  /** Read-only: the server's upload limit for photos. */
+  max_image_bytes: number;
 }
 
 export interface StaffMember {

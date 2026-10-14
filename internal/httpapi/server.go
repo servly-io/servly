@@ -74,7 +74,11 @@ func NewHandler(d Deps) http.Handler {
 	r.Use(requestID)
 	r.Use(requestLogger(d.Log))
 	r.Use(recoverer(d.Log))
-	r.Use(maxBody(DefaultMaxBodyBytes))
+	upload := int64(app.DefaultMaxImageBytes)
+	if d.App != nil {
+		upload = d.App.ImageLimit()
+	}
+	r.Use(maxBody(DefaultMaxBodyBytes, upload+64<<10)) // the image plus multipart framing
 
 	r.Get("/healthz", healthz(d.Version))
 	r.Get("/readyz", readyz(d.Log, d.Ready))

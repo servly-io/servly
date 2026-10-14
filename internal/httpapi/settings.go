@@ -28,12 +28,14 @@ type settingsJSON struct {
 	OrderNotesEnabled   bool           `json:"order_notes_enabled"`
 	PublicStatusEnabled bool           `json:"public_status_enabled"`
 	AcceptingOrders     bool           `json:"accepting_orders"`
+	// MaxImageBytes is the upload limit for menu photos (read-only, server config).
+	MaxImageBytes int64 `json:"max_image_bytes"`
 }
 
 func (s *server) settingsView(l *tenant.Location) settingsJSON {
 	return settingsJSON{Name: l.Name, Currency: l.Currency, Timezone: l.Timezone,
 		OrderNotesEnabled: l.OrderNotesEnabled, PublicStatusEnabled: l.PublicStatusEnabled,
-		AcceptingOrders: l.AcceptingOrders}
+		AcceptingOrders: l.AcceptingOrders, MaxImageBytes: s.App.ImageLimit()}
 }
 
 func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {

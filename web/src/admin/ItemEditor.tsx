@@ -4,6 +4,7 @@ import { menuApi } from '../api/admin';
 import type { MenuItem, MenuItemInput } from '../api/types';
 import { formatMoney, minorToInput, parseMoney } from '../shared/money';
 import { Icon } from '../shared/icons';
+import { fitImage, formatBytes } from '../shared/image';
 import { CountInput, MoneyInput } from '../shared/inputs';
 import { ErrorBanner, Field, PageHeader, Spinner, Toggle, useAction, useLoad } from '../shared/ui';
 import { useAdmin } from './AdminLayout';
@@ -126,7 +127,7 @@ export function ItemEditor() {
 
   const upload = async (file: File | undefined) => {
     if (!file) return;
-    const as = await act.run(() => menuApi.upload(file));
+    const as = await act.run(async () => menuApi.upload(await fitImage(file, settings.max_image_bytes)));
     if (as) set({ image_asset_id: as.id, image_preview: as.admin_url });
   };
 
@@ -276,7 +277,7 @@ export function ItemEditor() {
               <label className="photo-drop">
                 <Icon name="image" size={28} />
                 <span className="strong" style={{ color: 'var(--fg)' }}>Add a photo</span>
-                <span className="small">JPEG, PNG or WebP, up to 5 MB</span>
+                <span className="small">JPEG, PNG or WebP. Large photos are made smaller to fit {formatBytes(settings.max_image_bytes)}.</span>
                 <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload photo" onChange={(e) => void upload(e.target.files?.[0])} />
               </label>
             )}

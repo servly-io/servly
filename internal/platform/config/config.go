@@ -45,6 +45,7 @@ const (
 	KeySecretKey      = "secret_key"
 	KeySandbox        = "payments.sandbox"
 	KeySetupToken     = "setup_token"
+	KeyMaxImageBytes  = "uploads.max_image_bytes"
 )
 
 var defaults = map[string]any{
@@ -61,6 +62,7 @@ var defaults = map[string]any{
 	KeySecretKey:      "",
 	KeySandbox:        false,
 	KeySetupToken:     "",
+	KeyMaxImageBytes:  1 << 20,
 }
 
 // ConfigEnv names the variable that points at the config file.
@@ -95,6 +97,9 @@ type Config struct {
 	// SetupToken fixes the first-run setup token instead of a random one per
 	// process: for platforms that run several instances or restart them.
 	SetupToken string
+	// MaxImageBytes caps one uploaded image (bytes). Images live in the
+	// database, so this also bounds what one upload adds to it.
+	MaxImageBytes int64
 	// File is the config file that was read, or empty.
 	File string
 }
@@ -231,6 +236,11 @@ func resolve(v *viper.Viper) (Config, error) {
 		errs = append(errs, fmt.Errorf("%s: %q is not a boolean", KeySandbox, v.GetString(KeySandbox)))
 	}
 	c.PaymentsSandbox = sandbox
+	maxImg, err := strconv.ParseInt(v.GetString(KeyMaxImageBytes), 10, 64)
+	if err != nil || maxImg < 64<<10 || maxImg > 20<<20 {
+		errs = append(errs, fmt.Errorf("%s: %q is not a size in bytes between 65536 and 20971520", KeyMaxImageBytes, v.GetString(KeyMaxImageBytes)))
+	}
+	c.MaxImageBytes = maxImg
 	if c.SetupToken != "" && len(c.SetupToken) < 16 {
 		errs = append(errs, fmt.Errorf("%s: at least 16 characters (openssl rand -hex 16)", KeySetupToken))
 	}

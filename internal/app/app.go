@@ -11,15 +11,14 @@ import (
 	"github.com/servly-io/servly/internal/payments/provider"
 	"github.com/servly-io/servly/internal/platform/database"
 	"github.com/servly-io/servly/internal/platform/secretbox"
-	"github.com/servly-io/servly/internal/storage"
 )
 
 // App holds what the use cases share.
 type App struct {
 	DB  *database.DB
 	Log *slog.Logger
-	// Files stores uploaded assets; nil disables uploads.
-	Files *storage.Local
+	// MaxImageBytes caps one uploaded image; 0 means DefaultMaxImageBytes.
+	MaxImageBytes int64
 	// Events receives order changes after commit, for the staff SSE stream.
 	Events *notifications.Broker
 	// Secrets seals payment provider credentials; nil disables online payments.

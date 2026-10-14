@@ -76,7 +76,7 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 
 	stop := make(chan struct{})
 	application := app.New(db, log)
-	application.Files = storage.NewLocal(filepath.Join(cfg.DataDir, "assets"))
+	application.MaxImageBytes = cfg.MaxImageBytes
 	application.Providers = map[string]provider.Provider{"stripe": stripe.New()}
 	if cfg.PaymentsSandbox {
 		application.Providers["sandbox"] = sandbox.New()
@@ -104,6 +104,12 @@ func serve(ctx context.Context, cmd *cobra.Command, f *rootFlags, ready chan<- s
 			application.SetupToken = app.NewSetupToken()
 			log.Warn("first-run setup: open servly in a browser and enter this setup token",
 				"setup_token", application.SetupToken, "path", "/setup")
+		}
+	}
+	if schemaCurrent {
+		// Images used to be files under <data_dir>/assets (ADR 0009).
+		if err := application.ImportAssetFiles(ctx, storage.NewLocal(filepath.Join(cfg.DataDir, "assets"))); err != nil {
+			return err
 		}
 	}
 	go application.RunMaintenance(ctx, time.Hour)

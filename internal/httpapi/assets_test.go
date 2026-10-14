@@ -82,7 +82,7 @@ func TestAssetRejections(t *testing.T) {
 	if r := c.upload("picture", pngBytes(t)); r.Code != http.StatusUnprocessableEntity || r.code() != "file_required" {
 		t.Errorf("wrong field: %d %s", r.Code, r.Body.String())
 	}
-	big := append(pngBytes(t), make([]byte, app.MaxAssetBytes)...)
+	big := append(pngBytes(t), make([]byte, app.DefaultMaxImageBytes)...)
 	if r := c.upload("file", big); r.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("oversized: %d %s", r.Code, r.Body.String())
 	}

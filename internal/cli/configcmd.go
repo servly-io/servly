@@ -55,6 +55,7 @@ func newConfigCommand(f *rootFlags) *cobra.Command {
 				"secret_key":       redactSecret(cfg.SecretKey),
 				"setup_token":      redactSecret(cfg.SetupToken),
 				"payments":         map[string]bool{"sandbox": cfg.PaymentsSandbox},
+				"uploads":          map[string]int64{"max_image_bytes": cfg.MaxImageBytes},
 			}
 			enc := yaml.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent(2)
