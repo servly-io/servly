@@ -244,3 +244,28 @@ func TestRequireTenantAndPermission(t *testing.T) {
 		t.Errorf("staff viewing orders: %d", c)
 	}
 }
+
+func TestClientIPGroupsIPv6(t *testing.T) {
+	s := &server{Deps: Deps{TrustProxy: true}}
+	key := func(remote, xff string) string {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.RemoteAddr = remote
+		if xff != "" {
+			r.Header.Set("X-Forwarded-For", xff)
+		}
+		return s.clientIP(r)
+	}
+	a, b := key("[2001:db8:1:2:aaaa::1]:4000", ""), key("[2001:db8:1:2:bbbb::9]:4000", "")
+	if a != b || a != "2001:db8:1:2::/64" {
+		t.Fatalf("same /64: %q %q", a, b)
+	}
+	if key("[2001:db8:1:3::1]:4000", "") == a {
+		t.Fatal("other /64 shares a key")
+	}
+	if got := key("10.0.0.1:4000", "203.0.113.7, 2001:db8:9:9::5"); got != "2001:db8:9:9::/64" {
+		t.Fatalf("forwarded v6: %q", got)
+	}
+	if got := key("10.0.0.1:4000", ""); got != "10.0.0.1" {
+		t.Fatalf("v4: %q", got)
+	}
+}

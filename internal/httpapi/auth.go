@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -199,17 +200,22 @@ func (s *server) isHTTPS(r *http.Request) bool {
 }
 
 // clientIP is the address rate limits key on. Behind a trusted proxy it is
-// the last X-Forwarded-For entry: the one the proxy itself appended.
+// the last X-Forwarded-For entry: the one the proxy itself appended. An IPv6
+// address counts as its /64: one device or host usually owns the whole block,
+// so per-address limits would be trivially sidestepped.
 func (s *server) clientIP(r *http.Request) string {
+	host := r.RemoteAddr
+	if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		host = h
+	}
 	if s.TrustProxy {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			parts := strings.Split(xff, ",")
-			return strings.TrimSpace(parts[len(parts)-1])
+			host = strings.TrimSpace(parts[len(parts)-1])
 		}
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	if ip, err := netip.ParseAddr(host); err == nil && ip.Is6() && !ip.Is4In6() {
+		return netip.PrefixFrom(ip, 64).Masked().String()
 	}
 	return host
 }
