@@ -14,7 +14,7 @@ Status: **implemented contract**. Implemented: `/healthz`, `/readyz`, error form
 * **Money** is an integer field ending in `_minor` (minor units), with a `currency` (ISO 4217) on the enclosing object. Floats never appear.
 * **Timestamps** are RFC 3339 in UTC with microseconds: `"2026-10-10T18:30:01.123456Z"`.
 * **Unknown JSON fields are rejected** (`malformed_json`). Absent optional fields keep their current value on `PATCH`.
-* **Body limit:** 1 MiB by default, 64 KiB on `/api/public/*`, 5 MiB on asset upload.
+* **Body limit:** 1 MiB by default, 64 KiB on `/api/public/*`, the image limit plus 64 KiB on asset upload (1 MB images by default, `uploads.max_image_bytes`).
 * **Request id:** every response has `X-Request-Id`, and error bodies repeat it. A proxy may send a well-formed `X-Request-Id` (≤ 64 characters of `[A-Za-z0-9_-]`), and the server keeps it.
 * **Pagination:** collections that can grow take `?limit=` (default 50, max 200) and `?cursor=`, and return:
 
@@ -109,7 +109,7 @@ Codes defined so far: `route_not_found`, `method_not_allowed`, `malformed_json`,
 
 ```json
 {
-  "restaurant": { "name": "Trattoria Roma", "currency": "EUR", "order_notes_enabled": true },
+  "restaurant": { "name": "Trattoria Roma", "currency": "EUR", "order_notes_enabled": true, "accepting_orders": true },
   "dining_location": { "name": "Table 4", "kind": "table" },
   "payment": "after",
   "categories": [
@@ -149,6 +149,8 @@ Header `Idempotency-Key` is required. See [idempotent order creation](domain-mod
 ```
 
 The order's `mode` follows the dining location: a table gives `dine_in`, a pickup point gives `pickup`.
+
+Refused with `422 not_accepting_orders` while the restaurant has ordering switched off (the public menu shows `"accepting_orders": false`), and with `409 too_many_waiting_orders` when 3 orders already wait at this table, or 60 at the restaurant, for staff to accept them. Both apply to `POST /api/public/checkouts` too.
 
 `201` creates the order. A replay with the same key and body returns `200` with the same order. The body:
 
@@ -317,7 +319,7 @@ Permission `dining_locations.manage` for writes.
 | | Permission |
 |---|---|
 | `GET /api/admin/settings` | any member |
-| `PATCH /api/admin/settings` - `{name?, currency?, timezone?, order_notes_enabled?, public_status_enabled?}`; the currency is fixed once orders exist (`409 currency_fixed`) | `settings.manage` |
+| `PATCH /api/admin/settings` - `{name?, currency?, timezone?, order_notes_enabled?, public_status_enabled?, accepting_orders?}`; `GET` also returns the read-only `max_image_bytes`; the currency is fixed once orders exist (`409 currency_fixed`) | `settings.manage` |
 | `GET /api/admin/staff` - `{items: [{user_id, email, display_name, role, status}]}` | `staff.manage` |
 | `POST /api/admin/staff` - `{email, display_name, role, password}`; for a person who already has a servly sign-in (another restaurant), leave `password` out: sending one is `422 existing_user` | `staff.manage` |
 | `PATCH /api/admin/staff/{user_id}` - `{role?, password?}`; a password can be set only for people who work for this restaurant alone (`422 shared_user`), and it ends their sessions | `staff.manage` |

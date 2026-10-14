@@ -46,15 +46,17 @@ Required tests for every tenant-owned endpoint: read, update and delete another 
 ## Public endpoints
 
 * Table and order tokens carry 128 random bits (`ids.PublicToken`). Malformed tokens are rejected before a database lookup.
-* Rate limits apply per IP and per token to menu reads, order submission and status reads. In-process token buckets are enough for the single-process MVP.
+* Rate limits apply per IP and per token to menu reads, order submission and status reads. An IPv6 address counts as its /64, because one device or host usually owns the whole block. The buckets are in-process, so on a platform with several instances (Vercel) each instance has its own; put an edge rate-limit rule in front for a hosted demo.
+* **Waiting-order caps, counted in the database:** a table takes at most 3 orders that staff have not accepted yet, and a restaurant at most 60. Further guest orders and pay-first checkouts get `409 too_many_waiting_orders`. This bounds what a flood of fake orders puts on the board, whatever the number of addresses or instances. Pickup points share the restaurant cap only, because one serves many guests.
+* **Not taking orders:** owners can switch ordering off (Settings). Guests can still browse the menu and pay orders already placed; new orders get `422 not_accepting_orders`.
 * Body limit on `/api/public/*` is 64 KiB. The server enforces the order limits: 50 lines, quantity 99, notes 500 characters.
 * Prices are always recomputed. The request has no price fields, and unknown fields are rejected.
 * Public responses never contain internal ids, staff names, payment references or other orders.
 
 ## Uploaded files
 
-* JPEG, PNG and WebP only. The type is detected from the content, not from the name or the client's header. Maximum size is 5 MiB.
-* Files are stored under a server-generated key (`<tenant>/<uuid>`). Client file names never become paths, so path traversal is not possible.
+* JPEG, PNG and WebP only. The type is detected from the content, not from the name or the client's header. Maximum size is 1 MB by default (`uploads.max_image_bytes`).
+* Images are stored in the database row of their asset ([ADR 0009](adr/0009-images-in-database.md)). Client file names are ignored. Only images a live menu item shows are public; others need a staff session of their restaurant.
 * Served with the stored type, `X-Content-Type-Options: nosniff` and `Content-Disposition: inline`.
 
 ## Logging and secrets

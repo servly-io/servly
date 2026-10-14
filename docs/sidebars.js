@@ -29,6 +29,7 @@ const sidebars = {
         'adr/0006-cli-scope',
         'adr/0007-online-payments',
         'adr/0008-prepaid-orders-on-payment',
+        'adr/0009-images-in-database',
       ],
     },
     {

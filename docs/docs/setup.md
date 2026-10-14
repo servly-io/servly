@@ -72,7 +72,7 @@ Under **Menu**:
 3. **Add option groups** where guests choose:
    * "Size": choose at least 1 and at most 1, with Normal (+0.00) and Large (+3.00).
    * "Extras": choose at least 0 and at most 3, with each extra and its surcharge.
-4. **Add a photo** if you like: JPEG, PNG or WebP, up to 5 MB.
+4. **Add a photo** if you like: JPEG, PNG or WebP. Photos larger than 1 MB are made smaller in the browser before upload.
 5. During service, untick **Available** for anything that sells out. Guests see it as sold out and cannot order it.
 
 **Duplicate** saves time for similar items. **Delete** removes an item, or archives it if past orders contain it.

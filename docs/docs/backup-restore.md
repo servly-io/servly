@@ -9,10 +9,11 @@ Status: the procedures below work with standard tools today. A built-in `servly 
 
 ## What to back up
 
+Uploaded images live in the database too ([ADR 0009](adr/0009-images-in-database.md)), so the database is all the data there is.
+
 | | Local (SQLite) | Cloud (PostgreSQL) |
 |---|---|---|
 | Database | `<data_dir>/servly.db` (with its WAL) | the servly database |
-| Assets | `<data_dir>/assets/` | asset volume or bucket |
 | Config | `/etc/servly-io/servly.yaml`, `/etc/servly-io/servly.env` (contains secrets) | deployment config |
 
 ## SQLite: safe backups
@@ -21,7 +22,6 @@ Do not copy `servly.db` while servly is running. The newest writes may still be 
 
 ```bash
 sqlite3 /var/lib/servly-io/servly.db ".backup '/var/backups/servly-io/servly-$(date +%F-%H%M).db'"
-tar -C /var/lib/servly -czf "/var/backups/servly/assets-$(date +%F-%H%M).tar.gz" assets
 ```
 
 `VACUUM INTO '/path/backup.db'` works too. Alternatively, stop servly, copy `servly.db` together with any `-wal` file, and start servly again.

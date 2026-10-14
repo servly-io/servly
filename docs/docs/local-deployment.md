@@ -75,6 +75,7 @@ Settings resolve in this order (highest wins): command-line flag, environment va
 | `http.public_base_url` | `SERVLY_HTTP_PUBLIC_BASE_URL` | - | empty: taken from the request; the address guests use, for QR codes, e.g. `http://192.168.1.20:8080` |
 | `secret_key` | `SERVLY_SECRET_KEY` | - | empty: online payments off. 32 random bytes, base64 (`openssl rand -base64 32`), that encrypt payment provider credentials. Keep it with your backups: without it, connected providers must be connected again |
 | `payments.sandbox` | `SERVLY_PAYMENTS_SANDBOX` | - | `false`; `true` offers a fake payment provider for demos and tests. Never for real guests |
+| `uploads.max_image_bytes` | `SERVLY_UPLOADS_MAX_IMAGE_BYTES` | - | `1048576` (1 MB), between 64 KB and 20 MB. Larger photos are shrunk in the browser before upload. Images are stored in the database, so this also bounds how much one upload adds to it |
 | `setup_token` | `SERVLY_SETUP_TOKEN` | - | empty: a random first-run setup token per start, printed in the log. Set one (at least 16 characters, `openssl rand -hex 16`) where several instances run or restart often, so they all accept the same token. Not logged |
 
 The config file is optional. servly reads the first file it finds among `--config`, `$SERVLY_CONFIG`, `~/.config/servly-io/servly.yaml` and `/etc/servly-io/servly.yaml`. An unknown key in the file is an error, so typos do not pass silently.
@@ -102,10 +103,10 @@ servly config view   # the resolved settings, passwords redacted
 ├── servly.db        SQLite database (WAL mode)
 ├── servly.db-wal    write-ahead log: part of the database, never delete it
 ├── servly.db-shm
-└── assets/          uploaded images, one directory per restaurant
+└── assets/          only on installs from before images moved into the database; copied in at start, then unused
 ```
 
-Back up the database and `assets/` together. See [Backup and restore](backup-restore.md).
+Back up the database: it holds everything, including uploaded images. See [Backup and restore](backup-restore.md).
 
 ## Forgotten password
 

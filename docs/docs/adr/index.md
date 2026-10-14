@@ -15,5 +15,6 @@ Architecture decision records (ADRs) document the decisions MASTER_PLAN.md §18 
 | [0006](0006-cli-scope.md) | the CLI operates the installation; restaurant business happens in the web app | accepted |
 | [0007](0007-online-payments.md) | online payments through provider adapters, hosted checkout, polling plus webhooks, `awaiting_payment` | accepted; `awaiting_payment` replaced by 0008 |
 | [0008](0008-prepaid-orders-on-payment.md) | prepaid orders are created when the payment is confirmed, from the priced cart | accepted |
+| [0009](0009-images-in-database.md) | uploaded images are stored in the database, 1 MB each by default | accepted |
 
 New ADR: copy the most recent one, take the next number, add a row here and to `docs/sidebars.js`.

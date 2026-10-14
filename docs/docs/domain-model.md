@@ -41,7 +41,7 @@ erDiagram
 | `restaurant_locations` | a physical restaurant: `currency`, IANA `timezone`, feature flags; MVP: one per tenant | yes |
 | `tenant_domains` | public hostname → tenant (optionally location); a routing hint only | yes |
 | `sessions` | server-side staff sessions: SHA-256 of the token, active tenant, CSRF token, expiry | via user |
-| `assets` | uploaded images: storage key, type, size, hash | yes |
+| `assets` | uploaded images: type, size, hash and the image bytes (ADR 0009) | yes |
 | `menu_categories` | named, ordered, enable/disable | yes |
 | `menu_items` | name, description, `price_minor`, image, `is_enabled` (admin), `is_available` (sold out), `archived_at` | yes |
 | `option_groups` | per item: `min_select`, `max_select`; `archived_at` when removed from the item | yes |
