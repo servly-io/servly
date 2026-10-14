@@ -78,6 +78,7 @@ type publicMenuJSON struct {
 		Name              string         `json:"name"`
 		Currency          money.Currency `json:"currency"`
 		OrderNotesEnabled bool           `json:"order_notes_enabled"`
+		AcceptingOrders   bool           `json:"accepting_orders"`
 	} `json:"restaurant"`
 	DiningLocation struct {
 		Name string      `json:"name"`
@@ -101,6 +102,7 @@ func (s *server) publicMenu(w http.ResponseWriter, r *http.Request) {
 	}
 	var v publicMenuJSON
 	v.Restaurant.Name, v.Restaurant.Currency, v.Restaurant.OrderNotesEnabled = pm.Location.Name, pm.Location.Currency, pm.Location.OrderNotesEnabled
+	v.Restaurant.AcceptingOrders = pm.Location.AcceptingOrders
 	v.DiningLocation.Name, v.DiningLocation.Kind = pm.Dining.Name, pm.Dining.Kind
 	v.Payment = pm.Payment
 	v.Categories = []publicCategoryJSON{}

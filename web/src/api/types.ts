@@ -151,6 +151,8 @@ export interface Settings {
   timezone: string;
   order_notes_enabled: boolean;
   public_status_enabled: boolean;
+  /** Off: guests can browse the menu but not order (closing time, rush). */
+  accepting_orders: boolean;
 }
 
 export interface StaffMember {
@@ -162,7 +164,7 @@ export interface StaffMember {
 }
 
 export interface PublicMenu {
-  restaurant: { name: string; currency: Currency; order_notes_enabled: boolean };
+  restaurant: { name: string; currency: Currency; order_notes_enabled: boolean; accepting_orders: boolean };
   dining_location: { name: string; kind: DiningKind };
   payment: GuestPayment;
   categories: {

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { ApiError } from '../api/client';
+import { settingsApi } from '../api/admin';
 import { ordersApi } from '../api/staff';
 import type { OrderMode, OrderStatus, PaymentStatus, StaffOrder } from '../api/types';
 import { formatMoney } from '../shared/money';
 import { useSession } from '../shared/session';
 import { Icon } from '../shared/icons';
-import { EmptyState, ErrorBanner, Spinner, useAction } from '../shared/ui';
+import { EmptyState, ErrorBanner, Spinner, useAction, useLoad } from '../shared/ui';
 import { OrderDrawer } from './OrderDrawer';
 import { useLiveOrders } from './useLiveOrders';
 
@@ -30,6 +31,8 @@ export function OrderBoard() {
   const [mode, setMode] = useState<OrderMode | ''>('');
   const [view, setView] = useState<View>('kitchen');
   const live = useLiveOrders(view === 'history' ? done : active, mode);
+  // Reloaded on every reconnect, so the board catches up with a change in Settings.
+  const closed = useLoad(() => settingsApi.get(), [live.connection]);
   // Always on, so the "To pay" count is current in every view.
   const toPay = useLiveOrders(notCancelled, mode, owing);
   const [open, setOpen] = useState<{ id: string; handover?: boolean } | null>(null);
@@ -70,6 +73,9 @@ export function OrderBoard() {
             <span className="dot" />
             {conn}
           </span>
+          {closed.data?.accepting_orders === false && (
+            <span className="conn conn-reconnecting" title="Turned off in Settings">Not taking orders</span>
+          )}
         </div>
         <div className="kds-tools">
           <div className="seg" role="group" aria-label="View">

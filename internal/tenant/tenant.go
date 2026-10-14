@@ -142,9 +142,12 @@ type Location struct {
 	Timezone            string // IANA name; the business date of an order is taken in it
 	OrderNotesEnabled   bool
 	PublicStatusEnabled bool
-	Status              LocationStatus
-	CreatedAt           database.Timestamp
-	UpdatedAt           database.Timestamp
+	// AcceptingOrders is the restaurant-wide switch: off, guests can browse
+	// the menu but not order.
+	AcceptingOrders bool
+	Status          LocationStatus
+	CreatedAt       database.Timestamp
+	UpdatedAt       database.Timestamp
 }
 
 // Domain maps a public hostname to a tenant. A hostname is a routing hint,

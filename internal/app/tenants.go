@@ -75,7 +75,7 @@ func (a *App) createTenant(ctx context.Context, in CreateTenantInput, claim bool
 	}
 	res.Location = tenant.Location{
 		ID: ids.New(), TenantID: res.Tenant.ID, Name: name, Currency: currency, Timezone: in.Timezone,
-		OrderNotesEnabled: true, PublicStatusEnabled: true, Status: tenant.LocationActive, CreatedAt: now, UpdatedAt: now,
+		OrderNotesEnabled: true, PublicStatusEnabled: true, AcceptingOrders: true, Status: tenant.LocationActive, CreatedAt: now, UpdatedAt: now,
 	}
 
 	err = a.DB.InTx(ctx, func(tx *sql.Tx) error {

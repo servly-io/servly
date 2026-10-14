@@ -334,6 +334,9 @@ func (a *App) StartPrepayCheckout(ctx context.Context, in PlaceOrderInput, base 
 	} else if !errors.Is(err, payments.ErrNotFound) {
 		return nil, err
 	}
+	if err := checkOrderable(ctx, a.DB, loc, d); err != nil {
+		return nil, err
+	}
 	m, err := guestMenu(ctx, a.DB, loc)
 	if err != nil {
 		return nil, err

@@ -24,6 +24,7 @@ type SettingsInput struct {
 	Timezone            *string
 	OrderNotesEnabled   *bool
 	PublicStatusEnabled *bool
+	AcceptingOrders     *bool
 }
 
 // Settings returns the active location.
@@ -90,6 +91,10 @@ func (a *App) UpdateSettings(ctx context.Context, p *Principal, in SettingsInput
 		if in.PublicStatusEnabled != nil {
 			loc.PublicStatusEnabled = *in.PublicStatusEnabled
 			changed["public_status_enabled"] = loc.PublicStatusEnabled
+		}
+		if in.AcceptingOrders != nil {
+			loc.AcceptingOrders = *in.AcceptingOrders
+			changed["accepting_orders"] = loc.AcceptingOrders
 		}
 		loc.UpdatedAt = now
 		if err := st.UpdateLocation(ctx, loc); err != nil {

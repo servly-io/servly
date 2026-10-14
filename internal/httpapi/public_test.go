@@ -278,7 +278,10 @@ func TestConcurrentOrders(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				codes[i] = s.order(fmt.Sprintf("concurrent-%04d", i), s.basicOrder()).Code
+				// The pickup point: a table takes only 3 waiting orders.
+				body := s.basicOrder()
+				body["dining_location_token"] = s.pickupToken
+				codes[i] = s.order(fmt.Sprintf("concurrent-%04d", i), body).Code
 			}()
 		}
 		wg.Wait()
@@ -356,5 +359,35 @@ func TestQuote(t *testing.T) {
 		if r := s.client().do(http.MethodPost, "/api/public/orders/quote", bad); r.code() != "item_unavailable" {
 			t.Fatalf("bad quote: %d %s", r.Code, r.Body.String())
 		}
+	})
+}
+
+func TestOrderGuards(t *testing.T) {
+	dbtest.Each(t, func(t *testing.T, db *database.DB) {
+		s := newShop(t, db)
+		for i := range 3 {
+			mustCode(t, s.order(fmt.Sprintf("guard-%04d", i), s.basicOrder()), http.StatusCreated)
+		}
+		if r := s.order("guard-0003", s.basicOrder()); r.Code != http.StatusConflict || r.code() != "too_many_waiting_orders" {
+			t.Fatalf("4th waiting order at one table: %d %s", r.Code, r.Body.String())
+		}
+		// Accepting one makes room again.
+		id := mustCode(t, s.owner.do(http.MethodGet, "/api/admin/orders?status=new&limit=1", nil), http.StatusOK)["items"].([]any)[0].(map[string]any)["id"].(string)
+		mustCode(t, status(s.owner, id, "accepted", 1, ""), http.StatusOK)
+		mustCode(t, s.order("guard-0004", s.basicOrder()), http.StatusCreated)
+
+		// Closed for orders: the menu says so, ordering is refused, existing orders stay.
+		mustCode(t, s.owner.do(http.MethodPatch, "/api/admin/settings", map[string]any{"accepting_orders": false}), http.StatusOK)
+		menu := mustCode(t, s.client().do(http.MethodGet, "/api/public/menu/"+s.pickupToken, nil), http.StatusOK)
+		if menu["restaurant"].(map[string]any)["accepting_orders"] != false {
+			t.Fatalf("menu while closed: %v", menu["restaurant"])
+		}
+		body := s.basicOrder()
+		body["dining_location_token"] = s.pickupToken
+		if r := s.order("guard-0005", body); r.Code != http.StatusUnprocessableEntity || r.code() != "not_accepting_orders" {
+			t.Fatalf("order while closed: %d %s", r.Code, r.Body.String())
+		}
+		mustCode(t, s.owner.do(http.MethodPatch, "/api/admin/settings", map[string]any{"accepting_orders": true}), http.StatusOK)
+		mustCode(t, s.order("guard-0006", body), http.StatusCreated)
 	})
 }

@@ -150,7 +150,10 @@ export function CartPage() {
           ) : (
             <ErrorBanner error={submit.error} />
           )}
-          <div className="checkout-cta stack-tight">
+          {!menu.data.restaurant.accepting_orders && (
+            <p className="banner banner-warn" role="status"><Icon name="clock" /><span>The restaurant is not taking orders right now.</span></p>
+          )}
+          <div className="checkout-cta stack-tight" hidden={!menu.data.restaurant.accepting_orders}>
             {online === 'before' || online === 'either' ? (
               <button type="button" className="btn btn-primary btn-large btn-block" disabled={!quote || submit.busy} onClick={() => void payNow()}>
                 <span>{submit.busy ? 'Opening payment…' : online === 'before' ? 'Pay and order' : 'Pay now'}</span>

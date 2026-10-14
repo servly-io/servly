@@ -30,8 +30,10 @@ const (
 var (
 	// ErrMenuNotFound covers every reason a public token does not open a
 	// menu, so a guest learns nothing about why.
-	ErrMenuNotFound = apperr.NotFound("menu_not_found", "this menu is not available")
-	ErrBadIdemKey   = apperr.Invalid("idempotency_key_required", "send an Idempotency-Key header of 8-128 characters [A-Za-z0-9_-]")
+	ErrMenuNotFound   = apperr.NotFound("menu_not_found", "this menu is not available")
+	ErrNotAccepting   = apperr.Invalid("not_accepting_orders", "the restaurant is not taking orders right now; please ask the staff")
+	ErrTooManyWaiting = apperr.Conflict("too_many_waiting_orders", "orders are already waiting for the staff here; please wait or ask the staff")
+	ErrBadIdemKey     = apperr.Invalid("idempotency_key_required", "send an Idempotency-Key header of 8-128 characters [A-Za-z0-9_-]")
 )
 
 // PublicMenu is what a guest sees after scanning a table's QR code.
@@ -185,6 +187,9 @@ func (a *App) placeOrder(ctx context.Context, in PlaceOrderInput, now time.Time)
 			return nil
 		}
 
+		if err := checkOrderable(ctx, tx, loc, d); err != nil {
+			return err
+		}
 		// Where guests must pay first, an order only comes from a paid checkout.
 		if gp, _ := a.guestPayment(ctx, tx, loc.TenantID, loc.ID, d.Kind); gp == GuestPayment(payments.FlowBefore) {
 			return payments.ErrPayFirst
@@ -309,4 +314,32 @@ func (a *App) QuoteOrder(ctx context.Context, token, notes string, lines []order
 		Mode: mode, Status: orders.StatusNew, PaymentStatus: payments.StatusUnpaid, Currency: loc.Currency,
 		Subtotal: subtotal, Total: subtotal, Notes: strings.TrimSpace(notes), Lines: priced,
 	}}, nil
+}
+
+// Caps on orders the staff have not accepted yet. They bound what a flood of
+// fake orders can put on the board, whatever the number of addresses or server
+// instances, because the database counts them. Tables only: one pickup point
+// serves many guests, so it is covered by the restaurant-wide cap.
+const (
+	maxWaitingPerTable    = 3
+	maxWaitingPerLocation = 60
+)
+
+// checkOrderable refuses a new guest order when the restaurant is closed for
+// orders or too many are already waiting.
+func checkOrderable(ctx context.Context, q database.Querier, loc *tenant.Location, d *dining.Location) error {
+	if !loc.AcceptingOrders {
+		return ErrNotAccepting
+	}
+	var all, here int
+	if err := q.QueryRowContext(ctx,
+		`SELECT COUNT(*), COALESCE(SUM(CASE WHEN dining_location_id = $3 THEN 1 ELSE 0 END), 0)
+		   FROM orders WHERE tenant_id = $1 AND location_id = $2 AND status = 'new'`,
+		loc.TenantID, loc.ID, d.ID).Scan(&all, &here); err != nil {
+		return err
+	}
+	if all >= maxWaitingPerLocation || (d.Kind == dining.KindTable && here >= maxWaitingPerTable) {
+		return ErrTooManyWaiting
+	}
+	return nil
 }

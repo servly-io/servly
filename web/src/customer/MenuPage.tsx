@@ -59,6 +59,9 @@ export function MenuPage() {
           <span><Icon name="wallet" size={16} />{payLine(m.payment, pickup)}</span>
           <span><Icon name="user" size={16} />No account needed</span>
         </div>
+        {!m.restaurant.accepting_orders && (
+          <p className="banner banner-warn" role="status"><Icon name="clock" /><span>{m.restaurant.name} is not taking orders right now. You can still look at the menu.</span></p>
+        )}
       </header>
 
       <div className="cat-bar">
@@ -103,7 +106,7 @@ export function MenuPage() {
         )}
       </main>
 
-      {cart.count > 0 && (
+      {cart.count > 0 && m.restaurant.accepting_orders && (
         <Link to={`/m/${token}/cart`} className="cart-fab">
           <span className="cart-fab-count">{cart.count}</span>
           <span className="cart-fab-label">View order</span>
@@ -242,8 +245,10 @@ function ItemSheet({ item, menu, onClose, onAdd }: {
             <output aria-live="polite">{qty}</output>
             <button type="button" aria-label="One more" disabled={qty >= 99} onClick={() => setQty(qty + 1)}><Icon name="plus" size={18} /></button>
           </span>
-          <button type="submit" className="btn btn-primary btn-large" disabled={unmet.length > 0}>
-            {unmet.length > 0 ? (
+          <button type="submit" className="btn btn-primary btn-large" disabled={unmet.length > 0 || !menu.restaurant.accepting_orders}>
+            {!menu.restaurant.accepting_orders ? (
+              <span>Not taking orders right now</span>
+            ) : unmet.length > 0 ? (
               <span>Choose {unmet[0]!.name}</span>
             ) : (
               <>

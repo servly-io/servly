@@ -27,11 +27,13 @@ type settingsJSON struct {
 	Timezone            string         `json:"timezone"`
 	OrderNotesEnabled   bool           `json:"order_notes_enabled"`
 	PublicStatusEnabled bool           `json:"public_status_enabled"`
+	AcceptingOrders     bool           `json:"accepting_orders"`
 }
 
-func settingsView(l *tenant.Location) settingsJSON {
+func (s *server) settingsView(l *tenant.Location) settingsJSON {
 	return settingsJSON{Name: l.Name, Currency: l.Currency, Timezone: l.Timezone,
-		OrderNotesEnabled: l.OrderNotesEnabled, PublicStatusEnabled: l.PublicStatusEnabled}
+		OrderNotesEnabled: l.OrderNotesEnabled, PublicStatusEnabled: l.PublicStatusEnabled,
+		AcceptingOrders: l.AcceptingOrders}
 }
 
 func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +42,7 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, settingsView(l))
+	writeJSON(w, http.StatusOK, s.settingsView(l))
 }
 
 func (s *server) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -50,18 +52,20 @@ func (s *server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		Timezone            optional[string] `json:"timezone"`
 		OrderNotesEnabled   optional[bool]   `json:"order_notes_enabled"`
 		PublicStatusEnabled optional[bool]   `json:"public_status_enabled"`
+		AcceptingOrders     optional[bool]   `json:"accepting_orders"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	var in app.SettingsInput
-	var errs [5]error
+	var errs [6]error
 	in.Name, errs[0] = req.Name.ptr()
 	in.Currency, errs[1] = req.Currency.ptr()
 	in.Timezone, errs[2] = req.Timezone.ptr()
 	in.OrderNotesEnabled, errs[3] = req.OrderNotesEnabled.ptr()
 	in.PublicStatusEnabled, errs[4] = req.PublicStatusEnabled.ptr()
+	in.AcceptingOrders, errs[5] = req.AcceptingOrders.ptr()
 	if err := firstErr(errs[:]...); err != nil {
 		s.fail(w, r, err)
 		return
@@ -71,7 +75,7 @@ func (s *server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, settingsView(l))
+	writeJSON(w, http.StatusOK, s.settingsView(l))
 }
 
 type staffJSON struct {

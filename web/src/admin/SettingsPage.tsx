@@ -20,7 +20,8 @@ export function SettingsPage() {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaved(false);
-    if (await act.run(() => settingsApi.update(form))) {
+    const { name, currency, timezone, order_notes_enabled, public_status_enabled, accepting_orders } = form;
+    if (await act.run(() => settingsApi.update({ name, currency, timezone, order_notes_enabled, public_status_enabled, accepting_orders }))) {
       await reloadSettings();
       setSaved(true);
     }
@@ -47,6 +48,7 @@ export function SettingsPage() {
         </section>
         <section className="card stack-tight">
           <h2>Guest ordering</h2>
+          <Toggle label="Accepting orders" description="Turn off at closing time or when the kitchen is full. Guests can still see the menu and pay orders they already placed." checked={form.accepting_orders} onChange={(v) => setForm({ ...form, accepting_orders: v })} />
           <Toggle label="Notes on orders" description="Guests can add a note for the kitchen, such as “no onions”." checked={form.order_notes_enabled} onChange={(v) => setForm({ ...form, order_notes_enabled: v })} />
           <Toggle label="Order status page" description="After ordering, guests can follow their order on their phone." checked={form.public_status_enabled} onChange={(v) => setForm({ ...form, public_status_enabled: v })} />
         </section>

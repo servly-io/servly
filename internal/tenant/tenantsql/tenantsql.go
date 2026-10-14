@@ -162,12 +162,12 @@ func (s *Store) CountActiveOwners(ctx context.Context, tenantID uuid.UUID) (int,
 	return n, err
 }
 
-const locationCols = `id, tenant_id, name, currency, timezone, order_notes_enabled, public_status_enabled, status, created_at, updated_at`
+const locationCols = `id, tenant_id, name, currency, timezone, order_notes_enabled, public_status_enabled, accepting_orders, status, created_at, updated_at`
 
 func scanLocation(row interface{ Scan(...any) error }) (*tenant.Location, error) {
 	var l tenant.Location
 	if err := row.Scan(&l.ID, &l.TenantID, &l.Name, &l.Currency, &l.Timezone, &l.OrderNotesEnabled,
-		&l.PublicStatusEnabled, &l.Status, &l.CreatedAt, &l.UpdatedAt); err != nil {
+		&l.PublicStatusEnabled, &l.AcceptingOrders, &l.Status, &l.CreatedAt, &l.UpdatedAt); err != nil {
 		return nil, notFound(err)
 	}
 	return &l, nil
@@ -175,8 +175,8 @@ func scanLocation(row interface{ Scan(...any) error }) (*tenant.Location, error)
 
 func (s *Store) CreateLocation(ctx context.Context, l *tenant.Location) error {
 	_, err := s.q.ExecContext(ctx,
-		`INSERT INTO restaurant_locations (`+locationCols+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		l.ID, l.TenantID, l.Name, l.Currency, l.Timezone, l.OrderNotesEnabled, l.PublicStatusEnabled, l.Status, l.CreatedAt, l.UpdatedAt)
+		`INSERT INTO restaurant_locations (`+locationCols+`) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		l.ID, l.TenantID, l.Name, l.Currency, l.Timezone, l.OrderNotesEnabled, l.PublicStatusEnabled, l.AcceptingOrders, l.Status, l.CreatedAt, l.UpdatedAt)
 	return err
 }
 
@@ -193,9 +193,10 @@ func (s *Store) PrimaryLocation(ctx context.Context, tenantID uuid.UUID) (*tenan
 func (s *Store) UpdateLocation(ctx context.Context, l *tenant.Location) error {
 	return expectOne(s.q.ExecContext(ctx,
 		`UPDATE restaurant_locations
-		    SET name = $3, currency = $4, timezone = $5, order_notes_enabled = $6, public_status_enabled = $7, status = $8, updated_at = $9
+		    SET name = $3, currency = $4, timezone = $5, order_notes_enabled = $6, public_status_enabled = $7, accepting_orders = $8,
+		        status = $9, updated_at = $10
 		  WHERE tenant_id = $1 AND id = $2`,
-		l.TenantID, l.ID, l.Name, l.Currency, l.Timezone, l.OrderNotesEnabled, l.PublicStatusEnabled, l.Status, l.UpdatedAt))
+		l.TenantID, l.ID, l.Name, l.Currency, l.Timezone, l.OrderNotesEnabled, l.PublicStatusEnabled, l.AcceptingOrders, l.Status, l.UpdatedAt))
 }
 
 // expectOne turns an update that matched no row into tenant.ErrNotFound.
